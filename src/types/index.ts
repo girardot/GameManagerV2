@@ -67,3 +67,9 @@ export interface ImportReport {
   playQueueCreated: number
   errors: string[]
 }
+
+export interface ExportReport {
+  gamesCount: number
+  buyCount: number
+  error: string | null
+}

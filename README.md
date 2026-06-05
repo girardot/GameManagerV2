@@ -7,7 +7,7 @@ Application web pour gérer une collection de jeux vidéo : consoles, progressio
 - **Collection** : jeux par console, format (physique / dématérialisé), progression (à faire, en cours, terminé, abandonné)
 - **À jouer** : file priorisée avec réordonnancement
 - **À acheter** : console, format, prix, total estimé
-- **Import Excel** : feuilles `Games` et `To Buy` de `Games.xlsx`
+- **Import / Export Excel** : feuilles `Games` et `To Buy` de `Games.xlsx`
 - **PWA** : installation sur l’écran d’accueil du téléphone
 
 ## Prérequis
