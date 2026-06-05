@@ -251,22 +251,24 @@ export function BuyListPage() {
 
       <div className="space-y-2">
         {items.map((item, idx) => (
-          <Card key={item.id} className="flex items-center gap-3">
-            {prioritySupported && (
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-sm font-bold text-green-300">
-                {item.priority ?? idx + 1}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="font-medium truncate">{item.title}</p>
-              <p className="text-sm text-slate-400">
-                {item.consoles?.name ?? 'Console ?'}
-                {item.is_digital != null &&
-                  ` · ${item.is_digital ? 'Démat' : 'Physique'}`}
-                {item.price != null && ` · ${Number(item.price).toFixed(2)} €`}
-              </p>
+          <Card key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              {prioritySupported && (
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-sm font-bold text-green-300">
+                  {item.priority ?? idx + 1}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-medium break-words">{item.title}</p>
+                <p className="mt-0.5 text-sm text-slate-400 break-words">
+                  {item.consoles?.name ?? 'Console ?'}
+                  {item.is_digital != null &&
+                    ` · ${item.is_digital ? 'Démat' : 'Physique'}`}
+                  {item.price != null && ` · ${Number(item.price).toFixed(2)} €`}
+                </p>
+              </div>
             </div>
-            <div className="flex shrink-0 gap-1">
+            <div className="flex shrink-0 flex-wrap justify-end gap-1 border-t border-slate-800 pt-2 sm:border-0 sm:pt-0">
               {prioritySupported && (
                 <>
                   <button
