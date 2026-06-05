@@ -1,0 +1,138 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
+import { Card, Badge } from '../components/ui'
+import { PROGRESS_LABELS, type GameProgress } from '../types'
+
+export function DashboardPage() {
+  const { user } = useAuth()
+  const [stats, setStats] = useState({
+    total: 0,
+    byProgress: {} as Record<GameProgress, number>,
+    consoles: 0,
+    playQueue: 0,
+    buyList: 0,
+    buyTotal: 0,
+  })
+
+  useEffect(() => {
+    if (!supabase || !user) return
+
+    async function load() {
+      const [gamesRes, consolesRes, queueRes, buyRes] = await Promise.all([
+        supabase!.from('games').select('progress').eq('user_id', user!.id),
+        supabase!.from('consoles').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
+        supabase!.from('play_queue').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
+        supabase!.from('buy_list').select('price').eq('user_id', user!.id),
+      ])
+
+      const byProgress: Record<GameProgress, number> = {
+        todo: 0,
+        in_progress: 0,
+        done: 0,
+        abandoned: 0,
+      }
+      for (const g of gamesRes.data ?? []) {
+        const p = g.progress as GameProgress
+        if (p in byProgress) byProgress[p]++
+      }
+
+      const buyTotal = (buyRes.data ?? []).reduce(
+        (sum, item) => sum + (Number(item.price) || 0),
+        0
+      )
+
+      setStats({
+        total: gamesRes.data?.length ?? 0,
+        byProgress,
+        consoles: consolesRes.count ?? 0,
+        playQueue: queueRes.count ?? 0,
+        buyList: buyRes.data?.length ?? 0,
+        buyTotal,
+      })
+    }
+
+    load()
+  }, [user])
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Tableau de bord</h1>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card>
+          <p className="text-2xl font-bold text-indigo-400">{stats.total}</p>
+          <p className="text-sm text-slate-400">Jeux</p>
+        </Card>
+        <Card>
+          <p className="text-2xl font-bold">{stats.consoles}</p>
+          <p className="text-sm text-slate-400">Consoles</p>
+        </Card>
+        <Card>
+          <p className="text-2xl font-bold text-yellow-400">{stats.playQueue}</p>
+          <p className="text-sm text-slate-400">À jouer</p>
+        </Card>
+        <Card>
+          <p className="text-2xl font-bold text-green-400">{stats.buyList}</p>
+          <p className="text-sm text-slate-400">À acheter</p>
+        </Card>
+      </div>
+
+      <Card>
+        <h2 className="mb-3 font-semibold">Progression</h2>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(PROGRESS_LABELS) as GameProgress[]).map((p) => (
+            <Badge
+              key={p}
+              color={
+                p === 'done'
+                  ? 'green'
+                  : p === 'in_progress'
+                    ? 'yellow'
+                    : p === 'abandoned'
+                      ? 'red'
+                      : 'indigo'
+              }
+            >
+              {PROGRESS_LABELS[p]}: {stats.byProgress[p]}
+            </Badge>
+          ))}
+        </div>
+      </Card>
+
+      {stats.buyTotal > 0 && (
+        <Card>
+          <p className="text-sm text-slate-400">Budget à acheter (prix renseignés)</p>
+          <p className="text-xl font-bold text-green-400">
+            {stats.buyTotal.toFixed(2)} €
+          </p>
+        </Card>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Link
+          to="/collection"
+          className="rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-indigo-500 transition"
+        >
+          <p className="font-medium">Collection</p>
+          <p className="text-sm text-slate-400">Voir et modifier vos jeux</p>
+        </Link>
+        <Link
+          to="/a-jouer"
+          className="rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-indigo-500 transition"
+        >
+          <p className="font-medium">À jouer</p>
+          <p className="text-sm text-slate-400">File priorisée</p>
+        </Link>
+        <Link
+          to="/a-acheter"
+          className="rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-indigo-500 transition"
+        >
+          <p className="font-medium">À acheter</p>
+          <p className="text-sm text-slate-400">Liste d’achats</p>
+        </Link>
+      </div>
+    </div>
+  )
+}
