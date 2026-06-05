@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  ShoppingBag,
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
@@ -170,6 +177,32 @@ export function BuyListPage() {
     fetchItems()
   }
 
+  const markAsPurchased = async (item: BuyListItem) => {
+    if (!supabase || !user) return
+    if (!item.console_id) {
+      alert('Renseignez une console avant d’ajouter à la collection.')
+      return
+    }
+    const { error } = await supabase.from('games').insert({
+      user_id: user.id,
+      title: item.title,
+      console_id: item.console_id,
+      is_digital: item.is_digital ?? false,
+      progress: 'todo',
+    })
+    if (error) {
+      if (error.code === '23505') {
+        alert('Ce jeu est déjà dans la collection.')
+      } else {
+        alert(error.message)
+      }
+      return
+    }
+    await supabase.from('buy_list').delete().eq('id', item.id)
+    if (prioritySupported) await reorderAfterDelete()
+    else fetchItems()
+  }
+
   const moveItem = async (id: string, direction: 'up' | 'down') => {
     if (!prioritySupported) return
     const idx = items.findIndex((i) => i.id === id)
@@ -254,6 +287,14 @@ export function BuyListPage() {
                   </button>
                 </>
               )}
+              <button
+                type="button"
+                onClick={() => markAsPurchased(item)}
+                title="Ajouter à la collection"
+                className="p-2 text-slate-400 hover:text-green-400"
+              >
+                <ShoppingBag className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => openEdit(item)}
