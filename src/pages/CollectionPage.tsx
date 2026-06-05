@@ -12,6 +12,8 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
+import { useTags } from '../hooks/useTags'
+import { syncGameTags } from '../lib/tags'
 import {
   Button,
   Input,
@@ -27,6 +29,7 @@ import {
   PROGRESS_OPTIONS,
   type Game,
   type GameProgress,
+  type Tag,
 } from '../types'
 
 const progressBadgeColor: Record<
@@ -39,15 +42,29 @@ const progressBadgeColor: Record<
   abandoned: 'red',
 }
 
+function parseGame(row: Record<string, unknown>): Game {
+  const rawTags = row.game_tags as
+    | Array<{ tags: Tag | Tag[] | null }>
+    | undefined
+  const tags = (rawTags ?? [])
+    .map((gt) => (Array.isArray(gt.tags) ? gt.tags[0] : gt.tags))
+    .filter((t): t is Tag => Boolean(t))
+  const { game_tags: _gt, ...rest } = row
+  return { ...(rest as unknown as Game), tags }
+}
+
 export function CollectionPage() {
   const { user } = useAuth()
   const { consoles } = useConsoles()
+  const { tags: allTags, fetchTags } = useTags()
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [filterConsole, setFilterConsole] = useState('')
   const [filterProgress, setFilterProgress] = useState('')
   const [filterDigital, setFilterDigital] = useState('')
+  const [filterTag, setFilterTag] = useState('')
   const [search, setSearch] = useState('')
+  const [newTagInput, setNewTagInput] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [collapsedConsoles, setCollapsedConsoles] = useState<Set<string>>(
     new Set()
@@ -59,6 +76,8 @@ export function CollectionPage() {
     console_id: '',
     is_digital: false,
     progress: 'todo' as GameProgress,
+    notes: '',
+    tagNames: [] as string[],
   })
 
   const fetchGames = useCallback(async () => {
@@ -66,10 +85,10 @@ export function CollectionPage() {
     setLoading(true)
     const { data } = await supabase
       .from('games')
-      .select('*, consoles(name)')
+      .select('*, consoles(name), game_tags(tags(id, name, user_id, created_at))')
       .eq('user_id', user.id)
       .order('title')
-    setGames((data as Game[]) ?? [])
+    setGames((data ?? []).map((row) => parseGame(row as Record<string, unknown>)))
     setLoading(false)
   }, [user])
 
@@ -84,6 +103,7 @@ export function CollectionPage() {
     if (filterDigital === 'physical' && g.is_digital) return false
     if (search && !g.title.toLowerCase().includes(search.toLowerCase()))
       return false
+    if (filterTag && !g.tags?.some((t) => t.id === filterTag)) return false
     return true
   })
 
@@ -140,7 +160,9 @@ export function CollectionPage() {
       is_digital: false,
       progress: 'todo',
       notes: '',
+      tagNames: [],
     })
+    setNewTagInput('')
     setModalOpen(true)
   }
 
@@ -152,35 +174,49 @@ export function CollectionPage() {
       is_digital: game.is_digital,
       progress: game.progress,
       notes: game.notes ?? '',
+      tagNames: game.tags?.map((t) => t.name) ?? [],
     })
+    setNewTagInput('')
     setModalOpen(true)
+  }
+
+  const addTagName = (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed || form.tagNames.includes(trimmed)) return
+    setForm({ ...form, tagNames: [...form.tagNames, trimmed] })
+    setNewTagInput('')
+  }
+
+  const removeTagName = (name: string) => {
+    setForm({
+      ...form,
+      tagNames: form.tagNames.filter((n) => n !== name),
+    })
   }
 
   const saveGame = async () => {
     if (!supabase || !user || !form.title || !form.console_id) return
+    const payload = {
+      title: form.title.trim(),
+      console_id: form.console_id,
+      is_digital: form.is_digital,
+      progress: form.progress,
+      notes: form.notes.trim() || null,
+    }
+
     if (editing) {
-      await supabase
-        .from('games')
-        .update({
-          title: form.title.trim(),
-          console_id: form.console_id,
-          is_digital: form.is_digital,
-          progress: form.progress,
-          notes: form.notes.trim() || null,
-        })
-        .eq('id', editing.id)
+      await supabase.from('games').update(payload).eq('id', editing.id)
+      await syncGameTags(supabase, user.id, editing.id, form.tagNames)
     } else {
-      await supabase.from('games').insert({
-        user_id: user.id,
-        title: form.title.trim(),
-        console_id: form.console_id,
-        is_digital: form.is_digital,
-        progress: form.progress,
-        notes: form.notes.trim() || null,
-      })
+      const { data } = await supabase
+        .from('games')
+        .insert({ user_id: user.id, ...payload })
+        .select('id')
+        .single()
+      if (data) await syncGameTags(supabase, user.id, data.id, form.tagNames)
     }
     setModalOpen(false)
-    fetchGames()
+    await Promise.all([fetchGames(), fetchTags()])
   }
 
   const deleteGame = async (id: string) => {
@@ -233,7 +269,7 @@ export function CollectionPage() {
       </div>
 
       {showFilters && (
-        <Card className="grid gap-3 sm:grid-cols-3">
+        <Card className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <Label>Console</Label>
             <Select
@@ -271,6 +307,20 @@ export function CollectionPage() {
               <option value="">Tous</option>
               <option value="physical">Physique</option>
               <option value="digital">Dématérialisé</option>
+            </Select>
+          </div>
+          <div>
+            <Label>Tag</Label>
+            <Select
+              value={filterTag}
+              onChange={(e) => setFilterTag(e.target.value)}
+            >
+              <option value="">Tous</option>
+              {allTags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
             </Select>
           </div>
         </Card>
@@ -335,6 +385,15 @@ export function CollectionPage() {
                             <p className="mt-1 text-xs text-slate-400 line-clamp-2">
                               {g.notes}
                             </p>
+                          )}
+                          {g.tags && g.tags.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {g.tags.map((t) => (
+                                <Badge key={t.id} color="slate">
+                                  {t.name}
+                                </Badge>
+                              ))}
+                            </div>
                           )}
                         </td>
                         <td className="p-3">
@@ -416,6 +475,15 @@ export function CollectionPage() {
                         <p className="mt-1 text-xs text-slate-400 line-clamp-2">
                           {g.notes}
                         </p>
+                      )}
+                      {g.tags && g.tags.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {g.tags.map((t) => (
+                            <Badge key={t.id} color="slate">
+                              {t.name}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
                       <p className="text-sm text-slate-400">
                         {g.is_digital ? 'Démat' : 'Physique'}
@@ -523,6 +591,60 @@ export function CollectionPage() {
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
+          </div>
+          <div>
+            <Label>Tags</Label>
+            {form.tagNames.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1">
+                {form.tagNames.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => removeTagName(name)}
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-200 hover:bg-slate-600"
+                  >
+                    {name}
+                    <span aria-hidden>×</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                placeholder="RPG, Multijoueur, Court…"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addTagName(newTagInput)
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => addTagName(newTagInput)}
+              >
+                Ajouter
+              </Button>
+            </div>
+            {allTags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {allTags
+                  .filter((t) => !form.tagNames.includes(t.name))
+                  .map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => addTagName(t.name)}
+                      className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                    >
+                      + {t.name}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
           <Button className="w-full" onClick={saveGame}>
             Enregistrer

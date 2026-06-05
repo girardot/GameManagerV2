@@ -7,6 +7,13 @@ export interface Console {
   created_at: string
 }
 
+export interface Tag {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+
 export interface Game {
   id: string
   user_id: string
@@ -18,6 +25,7 @@ export interface Game {
   created_at: string
   updated_at: string
   consoles?: { name: string }
+  tags?: Tag[]
 }
 
 export interface PlayQueueItem {

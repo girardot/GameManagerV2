@@ -21,6 +21,8 @@ Application web pour gérer une collection de jeux vidéo : consoles, progressio
 2. Dans **SQL Editor**, exécutez les migrations dans l’ordre :
    - [`supabase/migrations/001_initial.sql`](supabase/migrations/001_initial.sql)
    - [`supabase/migrations/002_buy_list_priority.sql`](supabase/migrations/002_buy_list_priority.sql) (priorité sur la liste à acheter)
+   - [`supabase/migrations/003_game_notes.sql`](supabase/migrations/003_game_notes.sql) (notes par jeu)
+   - [`supabase/migrations/004_tags.sql`](supabase/migrations/004_tags.sql) (tags / genres)
 3. **Authentication** → activez Email et (optionnel) Google.
 4. Pour Google : configurez OAuth dans Supabase et ajoutez l’URL de redirection (`https://votre-app.vercel.app` et `http://localhost:5173`).
 5. Récupérez les clés dans **Settings → API Keys** :
