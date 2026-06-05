@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Filter } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Filter,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
@@ -39,6 +47,9 @@ export function CollectionPage() {
   const [filterDigital, setFilterDigital] = useState('')
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [collapsedConsoles, setCollapsedConsoles] = useState<Set<string>>(
+    new Set()
+  )
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Game | null>(null)
   const [form, setForm] = useState({
@@ -73,6 +84,51 @@ export function CollectionPage() {
       return false
     return true
   })
+
+  const groupedByConsole = useMemo(() => {
+    const groups = new Map<string, { id: string; name: string; games: Game[] }>()
+    for (const game of filtered) {
+      const existing = groups.get(game.console_id)
+      if (existing) {
+        existing.games.push(game)
+      } else {
+        groups.set(game.console_id, {
+          id: game.console_id,
+          name: game.consoles?.name ?? 'Console inconnue',
+          games: [game],
+        })
+      }
+    }
+    return Array.from(groups.values())
+      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      .map((group) => ({
+        ...group,
+        games: group.games.sort((a, b) =>
+          a.title.localeCompare(b.title, 'fr')
+        ),
+      }))
+  }, [filtered])
+
+  const toggleConsole = (consoleId: string) => {
+    setCollapsedConsoles((prev) => {
+      const next = new Set(prev)
+      if (next.has(consoleId)) next.delete(consoleId)
+      else next.add(consoleId)
+      return next
+    })
+  }
+
+  const allCollapsed =
+    groupedByConsole.length > 0 &&
+    groupedByConsole.every((g) => collapsedConsoles.has(g.id))
+
+  const toggleAllConsoles = () => {
+    if (allCollapsed) {
+      setCollapsedConsoles(new Set())
+    } else {
+      setCollapsedConsoles(new Set(groupedByConsole.map((g) => g.id)))
+    }
+  }
 
   const openCreate = () => {
     setEditing(null)
@@ -205,89 +261,155 @@ export function CollectionPage() {
         </Card>
       )}
 
-      <p className="text-sm text-slate-500">
-        {filtered.length} jeu{filtered.length !== 1 ? 'x' : ''}
-        {loading && ' — chargement…'}
-      </p>
-
-      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-800">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-900 text-left text-slate-400">
-            <tr>
-              <th className="p-3">Titre</th>
-              <th className="p-3">Console</th>
-              <th className="p-3">Format</th>
-              <th className="p-3">Progression</th>
-              <th className="p-3 w-24" />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((g) => (
-              <tr key={g.id} className="border-t border-slate-800">
-                <td className="p-3 font-medium">{g.title}</td>
-                <td className="p-3 text-slate-400">{g.consoles?.name}</td>
-                <td className="p-3">{g.is_digital ? 'Démat' : 'Physique'}</td>
-                <td className="p-3">
-                  <Badge color={progressBadgeColor[g.progress]}>
-                    {PROGRESS_LABELS[g.progress]}
-                  </Badge>
-                </td>
-                <td className="p-3">
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(g)}
-                      className="p-2 text-slate-400 hover:text-indigo-400"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteGame(g.id)}
-                      className="p-2 text-slate-400 hover:text-red-400"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-500">
+          {filtered.length} jeu{filtered.length !== 1 ? 'x' : ''}
+          {loading && ' — chargement…'}
+        </p>
+        {groupedByConsole.length > 0 && (
+          <Button variant="ghost" onClick={toggleAllConsoles}>
+            <ChevronsDownUp className="h-4 w-4" />
+            {allCollapsed ? 'Tout déplier' : 'Tout replier'}
+          </Button>
+        )}
       </div>
 
-      <div className="md:hidden space-y-2">
-        {filtered.map((g) => (
-          <Card key={g.id} className="flex justify-between gap-2">
-            <div>
-              <p className="font-medium">{g.title}</p>
-              <p className="text-sm text-slate-400">
-                {g.consoles?.name} · {g.is_digital ? 'Démat' : 'Physique'}
-              </p>
-              <div className="mt-2">
-              <Badge color={progressBadgeColor[g.progress]}>
-                {PROGRESS_LABELS[g.progress]}
-              </Badge>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
+      <div className="hidden md:block space-y-4">
+        {groupedByConsole.map((group) => {
+          const collapsed = collapsedConsoles.has(group.id)
+          return (
+            <div
+              key={group.id}
+              className="overflow-x-auto rounded-xl border border-slate-800"
+            >
               <button
                 type="button"
-                onClick={() => openEdit(g)}
-                className="p-2 text-slate-400"
+                onClick={() => toggleConsole(group.id)}
+                className="flex w-full items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3 text-left hover:bg-slate-800/80 transition"
               >
-                <Pencil className="h-4 w-4" />
+                <span className="flex items-center gap-2">
+                  {collapsed ? (
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                  )}
+                  <span className="font-semibold text-indigo-300">
+                    {group.name}
+                  </span>
+                </span>
+                <span className="text-sm text-slate-500">
+                  {group.games.length} jeu{group.games.length !== 1 ? 'x' : ''}
+                </span>
               </button>
+              {!collapsed && (
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-900/50 text-left text-slate-400">
+                    <tr>
+                      <th className="p-3">Titre</th>
+                      <th className="p-3">Format</th>
+                      <th className="p-3">Progression</th>
+                      <th className="p-3 w-24" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.games.map((g) => (
+                      <tr key={g.id} className="border-t border-slate-800">
+                        <td className="p-3 font-medium">{g.title}</td>
+                        <td className="p-3">
+                          {g.is_digital ? 'Démat' : 'Physique'}
+                        </td>
+                        <td className="p-3">
+                          <Badge color={progressBadgeColor[g.progress]}>
+                            {PROGRESS_LABELS[g.progress]}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(g)}
+                              className="p-2 text-slate-400 hover:text-indigo-400"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteGame(g.id)}
+                              className="p-2 text-slate-400 hover:text-red-400"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="md:hidden space-y-4">
+        {groupedByConsole.map((group) => {
+          const collapsed = collapsedConsoles.has(group.id)
+          return (
+            <div key={group.id} className="space-y-2">
               <button
                 type="button"
-                onClick={() => deleteGame(g.id)}
-                className="p-2 text-slate-400"
+                onClick={() => toggleConsole(group.id)}
+                className="flex w-full items-center justify-between rounded-lg bg-slate-900 px-3 py-2.5 text-left hover:bg-slate-800 transition"
               >
-                <Trash2 className="h-4 w-4" />
+                <span className="flex items-center gap-2">
+                  {collapsed ? (
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                  )}
+                  <span className="font-semibold text-indigo-300">
+                    {group.name}
+                  </span>
+                </span>
+                <span className="text-xs text-slate-500">
+                  {group.games.length} jeu{group.games.length !== 1 ? 'x' : ''}
+                </span>
               </button>
+              {!collapsed &&
+                group.games.map((g) => (
+                  <Card key={g.id} className="flex justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{g.title}</p>
+                      <p className="text-sm text-slate-400">
+                        {g.is_digital ? 'Démat' : 'Physique'}
+                      </p>
+                      <div className="mt-2">
+                        <Badge color={progressBadgeColor[g.progress]}>
+                          {PROGRESS_LABELS[g.progress]}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(g)}
+                        className="p-2 text-slate-400"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteGame(g.id)}
+                        className="p-2 text-slate-400"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </Card>
+                ))}
             </div>
-          </Card>
-        ))}
+          )
+        })}
       </div>
 
       <Modal
