@@ -38,6 +38,7 @@ export interface BuyListItem {
   console_id: string | null
   is_digital: boolean | null
   price: number | null
+  priority?: number
   notes: string | null
   created_at: string
   consoles?: { name: string } | null

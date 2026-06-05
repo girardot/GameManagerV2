@@ -173,6 +173,15 @@ export async function importFromExcel(
       range: 1,
     })
 
+    let maxBuyPriority = 0
+    const { data: existingBuy } = await supabase
+      .from('buy_list')
+      .select('priority')
+      .eq('user_id', userId)
+      .order('priority', { ascending: false })
+      .limit(1)
+    maxBuyPriority = existingBuy?.[0]?.priority ?? 0
+
     for (const row of rows) {
       const title = String(row.title ?? '').trim()
       if (!title || title === 'To Buy') continue
@@ -188,12 +197,14 @@ export async function importFromExcel(
           ? null
           : parseBool(dematVal)
 
+      maxBuyPriority++
       const { error } = await supabase.from('buy_list').insert({
         user_id: userId,
         title,
         console_id: consoleId,
         is_digital,
         price: parsePrice(row.price),
+        priority: maxBuyPriority,
       })
 
       if (error) {
