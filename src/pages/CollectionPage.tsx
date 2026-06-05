@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
+  Play,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -183,6 +184,15 @@ export function CollectionPage() {
     fetchGames()
   }
 
+  const markInProgress = async (id: string) => {
+    if (!supabase) return
+    await supabase
+      .from('games')
+      .update({ progress: 'in_progress' })
+      .eq('id', id)
+    fetchGames()
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -325,6 +335,16 @@ export function CollectionPage() {
                         </td>
                         <td className="p-3">
                           <div className="flex gap-1">
+                            {g.progress !== 'in_progress' && g.progress !== 'done' && (
+                              <button
+                                type="button"
+                                onClick={() => markInProgress(g.id)}
+                                title="Marquer en cours"
+                                className="p-2 text-slate-400 hover:text-yellow-400"
+                              >
+                                <Play className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => openEdit(g)}
@@ -390,6 +410,16 @@ export function CollectionPage() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
+                      {g.progress !== 'in_progress' && g.progress !== 'done' && (
+                        <button
+                          type="button"
+                          onClick={() => markInProgress(g.id)}
+                          title="Marquer en cours"
+                          className="p-2 text-slate-400 hover:text-yellow-400"
+                        >
+                          <Play className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => openEdit(g)}

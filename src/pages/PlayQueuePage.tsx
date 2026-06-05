@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
+import { Plus, ChevronUp, ChevronDown, Trash2, Play } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
@@ -115,6 +115,33 @@ export function PlayQueuePage() {
     fetchItems()
   }
 
+  const resolveGameId = async (item: PlayQueueItem): Promise<string | null> => {
+    if (item.game_id) return item.game_id
+    if (!supabase || !user || !item.console_id) return null
+    const { data } = await supabase
+      .from('games')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('console_id', item.console_id)
+      .eq('title', item.title)
+      .maybeSingle()
+    return data?.id ?? null
+  }
+
+  const markInProgress = async (item: PlayQueueItem) => {
+    if (!supabase) return
+    const gameId = await resolveGameId(item)
+    if (!gameId) {
+      alert('Jeu introuvable dans la collection.')
+      return
+    }
+    await supabase
+      .from('games')
+      .update({ progress: 'in_progress' })
+      .eq('id', gameId)
+    fetchGames()
+  }
+
   const selectFromCollection = (gameId: string) => {
     const game = games.find((g) => g.id === gameId)
     if (game) {
@@ -155,6 +182,14 @@ export function PlayQueuePage() {
               </p>
             </div>
             <div className="flex shrink-0 gap-1">
+              <button
+                type="button"
+                onClick={() => markInProgress(item)}
+                title="Marquer en cours"
+                className="p-2 text-slate-400 hover:text-yellow-400"
+              >
+                <Play className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 disabled={idx === 0}
