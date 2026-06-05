@@ -7,6 +7,10 @@ import { PROGRESS_LABELS, type GameProgress } from '../types'
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const [nextToPlay, setNextToPlay] = useState<{
+    title: string
+    consoleName: string | null
+  } | null>(null)
   const [stats, setStats] = useState({
     total: 0,
     byProgress: {} as Record<GameProgress, number>,
@@ -20,12 +24,26 @@ export function DashboardPage() {
     if (!supabase || !user) return
 
     async function load() {
-      const [gamesRes, consolesRes, queueRes, buyRes] = await Promise.all([
-        supabase!.from('games').select('progress').eq('user_id', user!.id),
-        supabase!.from('consoles').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
-        supabase!.from('play_queue').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
-        supabase!.from('buy_list').select('price').eq('user_id', user!.id),
-      ])
+      const [gamesRes, consolesRes, queueRes, buyRes, nextRes] =
+        await Promise.all([
+          supabase!.from('games').select('progress').eq('user_id', user!.id),
+          supabase!
+            .from('consoles')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user!.id),
+          supabase!
+            .from('play_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user!.id),
+          supabase!.from('buy_list').select('price').eq('user_id', user!.id),
+          supabase!
+            .from('play_queue')
+            .select('title, consoles(name)')
+            .eq('user_id', user!.id)
+            .order('priority')
+            .limit(1)
+            .maybeSingle(),
+        ])
 
       const byProgress: Record<GameProgress, number> = {
         todo: 0,
@@ -51,6 +69,20 @@ export function DashboardPage() {
         buyList: buyRes.data?.length ?? 0,
         buyTotal,
       })
+
+      if (nextRes.data) {
+        const c = nextRes.data.consoles as
+          | { name: string }
+          | { name: string }[]
+          | null
+        const consoleName = Array.isArray(c) ? c[0]?.name : c?.name
+        setNextToPlay({
+          title: nextRes.data.title,
+          consoleName: consoleName ?? null,
+        })
+      } else {
+        setNextToPlay(null)
+      }
     }
 
     load()
@@ -59,6 +91,19 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Tableau de bord</h1>
+
+      {nextToPlay && (
+        <Link
+          to="/a-jouer"
+          className="block rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-5 transition hover:border-yellow-500/50"
+        >
+          <p className="text-sm font-medium text-yellow-300">Prochain à jouer</p>
+          <p className="mt-1 text-xl font-bold">{nextToPlay.title}</p>
+          {nextToPlay.consoleName && (
+            <p className="mt-1 text-sm text-slate-400">{nextToPlay.consoleName}</p>
+          )}
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Link
