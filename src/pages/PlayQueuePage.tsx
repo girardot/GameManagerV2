@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, ChevronUp, ChevronDown, Trash2, Play } from 'lucide-react'
+import { Plus, ChevronUp, ChevronDown, Trash2, Play, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
@@ -142,6 +142,22 @@ export function PlayQueuePage() {
     fetchGames()
   }
 
+  const markAsDone = async (item: PlayQueueItem) => {
+    if (!supabase) return
+    const gameId = await resolveGameId(item)
+    if (!gameId) {
+      alert('Jeu introuvable dans la collection.')
+      return
+    }
+    await supabase
+      .from('games')
+      .update({ progress: 'done' })
+      .eq('id', gameId)
+    await supabase.from('play_queue').delete().eq('id', item.id)
+    await reorderAfterDelete()
+    fetchGames()
+  }
+
   const selectFromCollection = (gameId: string) => {
     const game = games.find((g) => g.id === gameId)
     if (game) {
@@ -189,6 +205,14 @@ export function PlayQueuePage() {
                 className="p-2 text-slate-400 hover:text-yellow-400"
               >
                 <Play className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => markAsDone(item)}
+                title="Marquer terminé"
+                className="p-2 text-slate-400 hover:text-green-400"
+              >
+                <Check className="h-4 w-4" />
               </button>
               <button
                 type="button"
