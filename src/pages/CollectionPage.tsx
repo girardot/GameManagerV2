@@ -20,6 +20,7 @@ import {
   Card,
   Badge,
   Modal,
+  Textarea,
 } from '../components/ui'
 import {
   PROGRESS_LABELS,
@@ -138,6 +139,7 @@ export function CollectionPage() {
       console_id: consoles[0]?.id ?? '',
       is_digital: false,
       progress: 'todo',
+      notes: '',
     })
     setModalOpen(true)
   }
@@ -149,6 +151,7 @@ export function CollectionPage() {
       console_id: game.console_id,
       is_digital: game.is_digital,
       progress: game.progress,
+      notes: game.notes ?? '',
     })
     setModalOpen(true)
   }
@@ -163,6 +166,7 @@ export function CollectionPage() {
           console_id: form.console_id,
           is_digital: form.is_digital,
           progress: form.progress,
+          notes: form.notes.trim() || null,
         })
         .eq('id', editing.id)
     } else {
@@ -172,6 +176,7 @@ export function CollectionPage() {
         console_id: form.console_id,
         is_digital: form.is_digital,
         progress: form.progress,
+        notes: form.notes.trim() || null,
       })
     }
     setModalOpen(false)
@@ -324,7 +329,14 @@ export function CollectionPage() {
                   <tbody>
                     {group.games.map((g) => (
                       <tr key={g.id} className="border-t border-slate-800">
-                        <td className="p-3 font-medium">{g.title}</td>
+                        <td className="p-3 font-medium">
+                          <p>{g.title}</p>
+                          {g.notes && (
+                            <p className="mt-1 text-xs text-slate-400 line-clamp-2">
+                              {g.notes}
+                            </p>
+                          )}
+                        </td>
                         <td className="p-3">
                           {g.is_digital ? 'Démat' : 'Physique'}
                         </td>
@@ -400,6 +412,11 @@ export function CollectionPage() {
                   <Card key={g.id} className="flex justify-between gap-2">
                     <div>
                       <p className="font-medium">{g.title}</p>
+                      {g.notes && (
+                        <p className="mt-1 text-xs text-slate-400 line-clamp-2">
+                          {g.notes}
+                        </p>
+                      )}
                       <p className="text-sm text-slate-400">
                         {g.is_digital ? 'Démat' : 'Physique'}
                       </p>
@@ -499,6 +516,14 @@ export function CollectionPage() {
             />
             Dématérialisé
           </label>
+          <div>
+            <Label>Notes</Label>
+            <Textarea
+              placeholder="Où j’en suis, à finir avant le DLC…"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </div>
           <Button className="w-full" onClick={saveGame}>
             Enregistrer
           </Button>

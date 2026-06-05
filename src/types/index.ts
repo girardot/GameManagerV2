@@ -14,6 +14,7 @@ export interface Game {
   title: string
   is_digital: boolean
   progress: GameProgress
+  notes: string | null
   created_at: string
   updated_at: string
   consoles?: { name: string }
