@@ -24,7 +24,7 @@ export function DashboardPage() {
     if (!supabase || !user) return
 
     async function load() {
-      const [gamesRes, consolesRes, queueRes, buyRes, nextRes] =
+      const [gamesRes, consolesRes, queueRes, buyRes, queueListRes, abandonedRes] =
         await Promise.all([
           supabase!.from('games').select('progress').eq('user_id', user!.id),
           supabase!
@@ -38,11 +38,14 @@ export function DashboardPage() {
           supabase!.from('buy_list').select('price').eq('user_id', user!.id),
           supabase!
             .from('play_queue')
-            .select('title, consoles(name)')
+            .select('title, console_id, game_id, consoles(name)')
             .eq('user_id', user!.id)
-            .order('priority')
-            .limit(1)
-            .maybeSingle(),
+            .order('priority'),
+          supabase!
+            .from('games')
+            .select('id, title, console_id')
+            .eq('user_id', user!.id)
+            .eq('progress', 'abandoned'),
         ])
 
       const byProgress: Record<GameProgress, number> = {
@@ -70,14 +73,37 @@ export function DashboardPage() {
         buyTotal,
       })
 
-      if (nextRes.data) {
-        const c = nextRes.data.consoles as
+      const abandonedIds = new Set(
+        (abandonedRes.data ?? []).map((g) => g.id)
+      )
+      const abandonedKeys = new Set(
+        (abandonedRes.data ?? []).map((g) => `${g.console_id}:${g.title}`)
+      )
+      const nextItem = (queueListRes.data ?? []).find(
+        (item: {
+          game_id: string | null
+          console_id: string | null
+          title: string
+        }) => {
+          if (item.game_id && abandonedIds.has(item.game_id)) return false
+          if (
+            item.console_id &&
+            abandonedKeys.has(`${item.console_id}:${item.title}`)
+          ) {
+            return false
+          }
+          return true
+        }
+      )
+
+      if (nextItem) {
+        const c = nextItem.consoles as
           | { name: string }
           | { name: string }[]
           | null
         const consoleName = Array.isArray(c) ? c[0]?.name : c?.name
         setNextToPlay({
-          title: nextRes.data.title,
+          title: nextItem.title,
           consoleName: consoleName ?? null,
         })
       } else {
