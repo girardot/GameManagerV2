@@ -1,5 +1,9 @@
 export type GameProgress = 'todo' | 'in_progress' | 'done' | 'abandoned'
 
+export type PegiRating = 3 | 7 | 12 | 16 | 18
+
+export const PEGI_OPTIONS: PegiRating[] = [3, 7, 12, 16, 18]
+
 export interface Console {
   id: string
   user_id: string
@@ -22,6 +26,7 @@ export interface Game {
   is_digital: boolean
   progress: GameProgress
   notes: string | null
+  pegi: PegiRating | null
   created_at: string
   updated_at: string
   consoles?: { name: string }
@@ -36,9 +41,10 @@ export interface PlayQueueItem {
   game_id: string | null
   priority: number
   notes: string | null
+  pegi: PegiRating | null
   created_at: string
   consoles?: { name: string } | null
-  games?: { progress: GameProgress } | null
+  games?: { progress: GameProgress; pegi: PegiRating | null } | null
 }
 
 /** Statut affiché sur la file « à jouer » (jeux non terminés / non abandonnés). */
@@ -58,6 +64,7 @@ export interface BuyListItem {
   price: number | null
   priority?: number
   notes: string | null
+  pegi: PegiRating | null
   created_at: string
   consoles?: { name: string } | null
 }

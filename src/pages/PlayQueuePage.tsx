@@ -7,13 +7,14 @@ import {
   Play,
   Check,
   Ban,
+  Pencil,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal, Badge } from '../components/ui'
-import type { PlayQueueItem, PlayQueueStatus } from '../types'
-import { PLAY_QUEUE_STATUS_LABELS } from '../types'
+import type { PlayQueueItem, PlayQueueStatus, PegiRating } from '../types'
+import { PLAY_QUEUE_STATUS_LABELS, PEGI_OPTIONS } from '../types'
 
 const playQueueStatusColor: Record<PlayQueueStatus, 'indigo' | 'yellow'> = {
   todo: 'indigo',
@@ -25,6 +26,12 @@ function resolvePlayStatus(item: PlayQueueItem): PlayQueueStatus {
   return progress === 'in_progress' ? 'in_progress' : 'todo'
 }
 
+function resolvePegi(item: PlayQueueItem): PegiRating | null {
+  const joined = item.games?.pegi
+  if (joined != null) return joined
+  return item.pegi
+}
+
 export function PlayQueuePage() {
   const { user } = useAuth()
   const { consoles } = useConsoles()
@@ -34,11 +41,18 @@ export function PlayQueuePage() {
   >([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editing, setEditing] = useState<PlayQueueItem | null>(null)
   const [form, setForm] = useState({
     title: '',
     console_id: '',
     game_id: '',
     notes: '',
+    pegi: '' as '' | string,
+  })
+  const [editForm, setEditForm] = useState({
+    notes: '',
+    pegi: '' as '' | string,
   })
 
   const fetchItems = useCallback(async () => {
@@ -47,7 +61,7 @@ export function PlayQueuePage() {
     const [queueRes, gamesRes] = await Promise.all([
       supabase
         .from('play_queue')
-        .select('*, consoles(name), games(progress)')
+        .select('*, consoles(name), games(progress, pegi)')
         .eq('user_id', user.id)
         .order('priority'),
       supabase
@@ -144,10 +158,11 @@ export function PlayQueuePage() {
       console_id: form.console_id || null,
       game_id: form.game_id || null,
       notes: form.notes || null,
+      pegi: form.pegi ? (Number(form.pegi) as PegiRating) : null,
       priority: getNextPriority(),
     })
     setModalOpen(false)
-    setForm({ title: '', console_id: '', game_id: '', notes: '' })
+    setForm({ title: '', console_id: '', game_id: '', notes: '', pegi: '' })
     fetchItems()
   }
 
@@ -250,6 +265,49 @@ export function PlayQueuePage() {
     fetchGames()
   }
 
+  const openEdit = (item: PlayQueueItem) => {
+    const pegi = resolvePegi(item)
+    setEditing(item)
+    setEditForm({
+      notes: item.notes ?? '',
+      pegi: pegi != null ? String(pegi) : '',
+    })
+    setEditModalOpen(true)
+  }
+
+  const saveEdit = async () => {
+    if (!supabase || !editing) return
+    const pegi = editForm.pegi
+      ? (Number(editForm.pegi) as PegiRating)
+      : null
+    const notes = editForm.notes || null
+
+    if (editing.game_id) {
+      await supabase.from('games').update({ pegi }).eq('id', editing.game_id)
+      await supabase
+        .from('play_queue')
+        .update({ notes })
+        .eq('id', editing.id)
+    } else {
+      const gameId = await resolveGameId(editing)
+      if (gameId) {
+        await supabase.from('games').update({ pegi }).eq('id', gameId)
+        await supabase
+          .from('play_queue')
+          .update({ notes, pegi: null })
+          .eq('id', editing.id)
+      } else {
+        await supabase
+          .from('play_queue')
+          .update({ notes, pegi })
+          .eq('id', editing.id)
+      }
+    }
+    setEditModalOpen(false)
+    setEditing(null)
+    fetchItems()
+  }
+
   const selectFromCollection = (gameId: string) => {
     const game = games.find((g) => g.id === gameId)
     if (game) {
@@ -258,6 +316,7 @@ export function PlayQueuePage() {
         console_id: game.console_id,
         game_id: game.id,
         notes: '',
+        pegi: '',
       })
     }
   }
@@ -292,11 +351,20 @@ export function PlayQueuePage() {
                 </div>
                 <p className="mt-0.5 text-sm text-slate-400 break-words">
                   {item.consoles?.name ?? '—'}
+                  {resolvePegi(item) != null && ` · PEGI ${resolvePegi(item)}`}
                   {item.notes && ` · ${item.notes}`}
                 </p>
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-1 border-t border-slate-800 pt-2 sm:border-0 sm:pt-0">
+              <button
+                type="button"
+                onClick={() => openEdit(item)}
+                title="Modifier PEGI / notes"
+                className="p-2 text-slate-400 hover:text-indigo-400"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => markInProgress(item)}
@@ -402,6 +470,20 @@ export function PlayQueuePage() {
             </Select>
           </div>
           <div>
+            <Label>PEGI</Label>
+            <Select
+              value={form.pegi}
+              onChange={(e) => setForm({ ...form, pegi: e.target.value })}
+            >
+              <option value="">Non renseigné</option>
+              {PEGI_OPTIONS.map((p) => (
+                <option key={p} value={p}>
+                  PEGI {p}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
             <Label>Notes</Label>
             <Input
               value={form.notes}
@@ -410,6 +492,43 @@ export function PlayQueuePage() {
           </div>
           <Button className="w-full" onClick={addItem}>
             Ajouter en fin de file
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Modifier"
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>PEGI</Label>
+            <Select
+              value={editForm.pegi}
+              onChange={(e) =>
+                setEditForm({ ...editForm, pegi: e.target.value })
+              }
+            >
+              <option value="">Non renseigné</option>
+              {PEGI_OPTIONS.map((p) => (
+                <option key={p} value={p}>
+                  PEGI {p}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Input
+              value={editForm.notes}
+              onChange={(e) =>
+                setEditForm({ ...editForm, notes: e.target.value })
+              }
+            />
+          </div>
+          <Button className="w-full" onClick={saveEdit}>
+            Enregistrer
           </Button>
         </div>
       </Modal>

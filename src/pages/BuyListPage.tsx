@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal } from '../components/ui'
 import type { BuyListItem } from '../types'
+import { PEGI_OPTIONS } from '../types'
 
 function isMissingPriorityColumn(message: string) {
   return (
@@ -34,6 +35,7 @@ export function BuyListPage() {
     console_id: '',
     is_digital: '' as '' | 'true' | 'false',
     price: '',
+    pegi: '' as '' | string,
     notes: '',
   })
 
@@ -102,6 +104,7 @@ export function BuyListPage() {
       console_id: consoles[0]?.id ?? '',
       is_digital: '',
       price: '',
+      pegi: '',
       notes: '',
     })
     setModalOpen(true)
@@ -119,6 +122,7 @@ export function BuyListPage() {
             ? 'true'
             : 'false',
       price: item.price != null ? String(item.price) : '',
+      pegi: item.pegi != null ? String(item.pegi) : '',
       notes: item.notes ?? '',
     })
     setModalOpen(true)
@@ -134,6 +138,7 @@ export function BuyListPage() {
           ? null
           : form.is_digital === 'true',
       price: form.price ? parseFloat(form.price) : null,
+      pegi: form.pegi ? (Number(form.pegi) as BuyListItem['pegi']) : null,
       notes: form.notes || null,
     }
     if (editing) {
@@ -189,6 +194,7 @@ export function BuyListPage() {
       console_id: item.console_id,
       is_digital: item.is_digital ?? false,
       progress: 'todo',
+      pegi: item.pegi,
     })
     if (error) {
       if (error.code === '23505') {
@@ -264,6 +270,7 @@ export function BuyListPage() {
                   {item.consoles?.name ?? 'Console ?'}
                   {item.is_digital != null &&
                     ` · ${item.is_digital ? 'Démat' : 'Physique'}`}
+                  {item.pegi != null && ` · PEGI ${item.pegi}`}
                   {item.price != null && ` · ${Number(item.price).toFixed(2)} €`}
                 </p>
               </div>
@@ -377,6 +384,20 @@ export function BuyListPage() {
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
             />
+          </div>
+          <div>
+            <Label>PEGI</Label>
+            <Select
+              value={form.pegi}
+              onChange={(e) => setForm({ ...form, pegi: e.target.value })}
+            >
+              <option value="">Non renseigné</option>
+              {PEGI_OPTIONS.map((p) => (
+                <option key={p} value={p}>
+                  PEGI {p}
+                </option>
+              ))}
+            </Select>
           </div>
           <div>
             <Label>Notes</Label>

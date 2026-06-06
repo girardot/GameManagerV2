@@ -27,6 +27,7 @@ import {
 import {
   PROGRESS_LABELS,
   PROGRESS_OPTIONS,
+  PEGI_OPTIONS,
   type Game,
   type GameProgress,
   type Tag,
@@ -77,6 +78,7 @@ export function CollectionPage() {
     is_digital: false,
     progress: 'todo' as GameProgress,
     notes: '',
+    pegi: '' as '' | string,
     tagNames: [] as string[],
   })
 
@@ -160,6 +162,7 @@ export function CollectionPage() {
       is_digital: false,
       progress: 'todo',
       notes: '',
+      pegi: '',
       tagNames: [],
     })
     setNewTagInput('')
@@ -174,6 +177,7 @@ export function CollectionPage() {
       is_digital: game.is_digital,
       progress: game.progress,
       notes: game.notes ?? '',
+      pegi: game.pegi != null ? String(game.pegi) : '',
       tagNames: game.tags?.map((t) => t.name) ?? [],
     })
     setNewTagInput('')
@@ -202,6 +206,7 @@ export function CollectionPage() {
       is_digital: form.is_digital,
       progress: form.progress,
       notes: form.notes.trim() || null,
+      pegi: form.pegi ? (Number(form.pegi) as Game['pegi']) : null,
     }
 
     if (editing) {
@@ -372,6 +377,7 @@ export function CollectionPage() {
                     <tr>
                       <th className="p-3">Titre</th>
                       <th className="p-3">Format</th>
+                      <th className="p-3">PEGI</th>
                       <th className="p-3">Progression</th>
                       <th className="p-3 w-24" />
                     </tr>
@@ -398,6 +404,9 @@ export function CollectionPage() {
                         </td>
                         <td className="p-3">
                           {g.is_digital ? 'Démat' : 'Physique'}
+                        </td>
+                        <td className="p-3">
+                          {g.pegi != null ? `PEGI ${g.pegi}` : '—'}
                         </td>
                         <td className="p-3">
                           <Badge color={progressBadgeColor[g.progress]}>
@@ -487,6 +496,7 @@ export function CollectionPage() {
                       )}
                       <p className="text-sm text-slate-400">
                         {g.is_digital ? 'Démat' : 'Physique'}
+                        {g.pegi != null && ` · PEGI ${g.pegi}`}
                       </p>
                       <div className="mt-2">
                         <Badge color={progressBadgeColor[g.progress]}>
@@ -584,6 +594,20 @@ export function CollectionPage() {
             />
             Dématérialisé
           </label>
+          <div>
+            <Label>PEGI</Label>
+            <Select
+              value={form.pegi}
+              onChange={(e) => setForm({ ...form, pegi: e.target.value })}
+            >
+              <option value="">Non renseigné</option>
+              {PEGI_OPTIONS.map((p) => (
+                <option key={p} value={p}>
+                  PEGI {p}
+                </option>
+              ))}
+            </Select>
+          </div>
           <div>
             <Label>Notes</Label>
             <Textarea
