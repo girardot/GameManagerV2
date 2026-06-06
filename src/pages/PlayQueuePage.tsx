@@ -64,15 +64,16 @@ export function PlayQueuePage() {
   })
 
   const fetchItems = useCallback(async () => {
-    if (!supabase || !user) return
+    const client = supabase
+    if (!client || !user) return
     setLoading(true)
     const [queueRes, gamesRes] = await Promise.all([
-      supabase
+      client
         .from('play_queue')
         .select('*, consoles(name), games(progress, pegi, rating)')
         .eq('user_id', user.id)
         .order('priority'),
-      supabase
+      client
         .from('games')
         .select('id, title, console_id, progress')
         .eq('user_id', user.id)
@@ -99,22 +100,31 @@ export function PlayQueuePage() {
       progressByKey.set(g.id, status)
     }
 
-    const visible = ((queueRes.data as PlayQueueItem[]) ?? [])
+    const allQueue = (queueRes.data as PlayQueueItem[]) ?? []
+
+    const hiddenIds = allQueue
       .filter((item) => {
-        if (item.game_id && abandonedIds.has(item.game_id)) return false
+        if (item.game_id && abandonedIds.has(item.game_id)) return true
         if (
           item.console_id &&
           abandonedKeys.has(`${item.console_id}:${item.title}`)
         ) {
-          return false
+          return true
         }
-        return true
+        return false
       })
+      .map((item) => item.id)
+
+    if (hiddenIds.length > 0) {
+      await client.from('play_queue').delete().in('id', hiddenIds)
+    }
+
+    const visible = allQueue
+      .filter((item) => !hiddenIds.includes(item.id))
       .map((item) => {
         const joined = item.games
-        const joinedProgress = Array.isArray(joined)
-          ? joined[0]?.progress
-          : joined?.progress
+        const joinedGame = Array.isArray(joined) ? joined[0] : joined
+        const joinedProgress = joinedGame?.progress
         let progress = joinedProgress as PlayQueueStatus | undefined
         if (!progress && item.game_id) {
           progress = progressByKey.get(item.game_id)
@@ -122,11 +132,32 @@ export function PlayQueuePage() {
         if (!progress && item.console_id) {
           progress = progressByKey.get(`${item.console_id}:${item.title}`)
         }
+        const resolvedProgress: PlayQueueStatus =
+          progress === 'in_progress' ? 'in_progress' : 'todo'
         return {
           ...item,
-          games: progress ? { progress } : item.games,
+          games: {
+            progress: resolvedProgress,
+            pegi: joinedGame?.pegi ?? null,
+            rating: joinedGame?.rating ?? null,
+          },
         }
       })
+
+    const needsCompact = visible.some((item, i) => item.priority !== i + 1)
+    if (needsCompact) {
+      await Promise.all(
+        visible.map((item, i) =>
+          client
+            .from('play_queue')
+            .update({ priority: i + 1 })
+            .eq('id', item.id)
+        )
+      )
+      visible.forEach((item, i) => {
+        item.priority = i + 1
+      })
+    }
 
     setItems(visible)
     setLoading(false)
@@ -363,7 +394,7 @@ export function PlayQueuePage() {
           <Card key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-300">
-                {item.priority}
+                {idx + 1}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
