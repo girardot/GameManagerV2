@@ -11,8 +11,19 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
-import { Button, Input, Select, Label, Card, Modal } from '../components/ui'
-import type { PlayQueueItem } from '../types'
+import { Button, Input, Select, Label, Card, Modal, Badge } from '../components/ui'
+import type { PlayQueueItem, PlayQueueStatus } from '../types'
+import { PLAY_QUEUE_STATUS_LABELS } from '../types'
+
+const playQueueStatusColor: Record<PlayQueueStatus, 'indigo' | 'yellow'> = {
+  todo: 'indigo',
+  in_progress: 'yellow',
+}
+
+function resolvePlayStatus(item: PlayQueueItem): PlayQueueStatus {
+  const progress = item.games?.progress
+  return progress === 'in_progress' ? 'in_progress' : 'todo'
+}
 
 export function PlayQueuePage() {
   const { user } = useAuth()
@@ -33,28 +44,41 @@ export function PlayQueuePage() {
   const fetchItems = useCallback(async () => {
     if (!supabase || !user) return
     setLoading(true)
-    const [queueRes, abandonedRes] = await Promise.all([
+    const [queueRes, gamesRes] = await Promise.all([
       supabase
         .from('play_queue')
-        .select('*, consoles(name)')
+        .select('*, consoles(name), games(progress)')
         .eq('user_id', user.id)
         .order('priority'),
       supabase
         .from('games')
-        .select('id, title, console_id')
+        .select('id, title, console_id, progress')
         .eq('user_id', user.id)
-        .eq('progress', 'abandoned'),
+        .in('progress', ['todo', 'in_progress', 'abandoned']),
     ])
 
     const abandonedIds = new Set(
-      (abandonedRes.data ?? []).map((g) => g.id)
+      (gamesRes.data ?? [])
+        .filter((g) => g.progress === 'abandoned')
+        .map((g) => g.id)
     )
     const abandonedKeys = new Set(
-      (abandonedRes.data ?? []).map((g) => `${g.console_id}:${g.title}`)
+      (gamesRes.data ?? [])
+        .filter((g) => g.progress === 'abandoned')
+        .map((g) => `${g.console_id}:${g.title}`)
     )
 
-    const visible = ((queueRes.data as PlayQueueItem[]) ?? []).filter(
-      (item) => {
+    const progressByKey = new Map<string, PlayQueueStatus>()
+    for (const g of gamesRes.data ?? []) {
+      if (g.progress === 'abandoned') continue
+      const status: PlayQueueStatus =
+        g.progress === 'in_progress' ? 'in_progress' : 'todo'
+      progressByKey.set(`${g.console_id}:${g.title}`, status)
+      progressByKey.set(g.id, status)
+    }
+
+    const visible = ((queueRes.data as PlayQueueItem[]) ?? [])
+      .filter((item) => {
         if (item.game_id && abandonedIds.has(item.game_id)) return false
         if (
           item.console_id &&
@@ -63,8 +87,24 @@ export function PlayQueuePage() {
           return false
         }
         return true
-      }
-    )
+      })
+      .map((item) => {
+        const joined = item.games
+        const joinedProgress = Array.isArray(joined)
+          ? joined[0]?.progress
+          : joined?.progress
+        let progress = joinedProgress as PlayQueueStatus | undefined
+        if (!progress && item.game_id) {
+          progress = progressByKey.get(item.game_id)
+        }
+        if (!progress && item.console_id) {
+          progress = progressByKey.get(`${item.console_id}:${item.title}`)
+        }
+        return {
+          ...item,
+          games: progress ? { progress } : item.games,
+        }
+      })
 
     setItems(visible)
     setLoading(false)
@@ -244,7 +284,12 @@ export function PlayQueuePage() {
                 {item.priority}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-medium break-words">{item.title}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium break-words">{item.title}</p>
+                  <Badge color={playQueueStatusColor[resolvePlayStatus(item)]}>
+                    {PLAY_QUEUE_STATUS_LABELS[resolvePlayStatus(item)]}
+                  </Badge>
+                </div>
                 <p className="mt-0.5 text-sm text-slate-400 break-words">
                   {item.consoles?.name ?? '—'}
                   {item.notes && ` · ${item.notes}`}

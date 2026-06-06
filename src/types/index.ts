@@ -38,6 +38,15 @@ export interface PlayQueueItem {
   notes: string | null
   created_at: string
   consoles?: { name: string } | null
+  games?: { progress: GameProgress } | null
+}
+
+/** Statut affiché sur la file « à jouer » (jeux non terminés / non abandonnés). */
+export type PlayQueueStatus = 'todo' | 'in_progress'
+
+export const PLAY_QUEUE_STATUS_LABELS: Record<PlayQueueStatus, string> = {
+  todo: 'À jouer',
+  in_progress: 'En cours',
 }
 
 export interface BuyListItem {
