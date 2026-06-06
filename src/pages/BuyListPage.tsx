@@ -14,6 +14,35 @@ import { Button, Input, Select, Label, Card, Modal } from '../components/ui'
 import type { BuyListItem } from '../types'
 import { PEGI_OPTIONS, parseRating } from '../types'
 
+type BuyListSort = 'priority' | 'price_asc' | 'price_desc'
+
+function sortBuyItems(items: BuyListItem[], sort: BuyListSort): BuyListItem[] {
+  const copy = [...items]
+  if (sort === 'priority') {
+    return copy.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+  }
+  if (sort === 'price_asc') {
+    return copy.sort((a, b) => {
+      const pa = a.price
+      const pb = b.price
+      if (pa == null && pb == null) return (a.priority ?? 0) - (b.priority ?? 0)
+      if (pa == null) return 1
+      if (pb == null) return -1
+      if (pa !== pb) return pa - pb
+      return (a.priority ?? 0) - (b.priority ?? 0)
+    })
+  }
+  return copy.sort((a, b) => {
+    const pa = a.price
+    const pb = b.price
+    if (pa == null && pb == null) return (a.priority ?? 0) - (b.priority ?? 0)
+    if (pa == null) return 1
+    if (pb == null) return -1
+    if (pa !== pb) return pb - pa
+    return (a.priority ?? 0) - (b.priority ?? 0)
+  })
+}
+
 function isMissingPriorityColumn(message: string) {
   return (
     message.includes('priority') ||
@@ -25,6 +54,7 @@ export function BuyListPage() {
   const { user } = useAuth()
   const { consoles } = useConsoles()
   const [items, setItems] = useState<BuyListItem[]>([])
+  const [sortBy, setSortBy] = useState<BuyListSort>('priority')
   const [loading, setLoading] = useState(true)
   const [prioritySupported, setPrioritySupported] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -93,7 +123,9 @@ export function BuyListPage() {
     fetchItems()
   }, [fetchItems])
 
-  const total = items.reduce((s, i) => s + (Number(i.price) || 0), 0)
+  const sortedItems = sortBuyItems(items, sortBy)
+
+  const total = sortedItems.reduce((s, i) => s + (Number(i.price) || 0), 0)
 
   const getNextPriority = () =>
     items.length > 0 ? Math.max(...items.map((i) => i.priority ?? 0)) + 1 : 1
@@ -215,7 +247,7 @@ export function BuyListPage() {
   }
 
   const moveItem = async (id: string, direction: 'up' | 'down') => {
-    if (!prioritySupported) return
+    if (!prioritySupported || sortBy !== 'priority') return
     const idx = items.findIndex((i) => i.id === id)
     if (idx < 0) return
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -254,17 +286,31 @@ export function BuyListPage() {
         </Card>
       )}
 
-      <p className="text-sm text-slate-500">
-        {prioritySupported && 'Priorité 1 = le plus urgent. '}
-        {items.length} jeu{items.length !== 1 ? 'x' : ''}
-        {loading && ' — chargement…'}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          {prioritySupported && sortBy === 'priority' && 'Priorité 1 = le plus urgent. '}
+          {sortedItems.length} jeu{sortedItems.length !== 1 ? 'x' : ''}
+          {loading && ' — chargement…'}
+        </p>
+        <div className="flex items-center gap-2">
+          <Label>Trier par</Label>
+          <Select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as BuyListSort)}
+            className="w-auto min-w-[10rem]"
+          >
+            <option value="priority">Priorité</option>
+            <option value="price_asc">Prix croissant</option>
+            <option value="price_desc">Prix décroissant</option>
+          </Select>
+        </div>
+      </div>
 
       <div className="space-y-2">
-        {items.map((item, idx) => (
+        {sortedItems.map((item, idx) => (
           <Card key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex min-w-0 flex-1 items-start gap-3">
-              {prioritySupported && (
+              {prioritySupported && sortBy === 'priority' && (
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-sm font-bold text-green-300">
                   {item.priority ?? idx + 1}
                 </span>
@@ -282,7 +328,7 @@ export function BuyListPage() {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-1 border-t border-slate-800 pt-2 sm:border-0 sm:pt-0">
-              {prioritySupported && (
+              {prioritySupported && sortBy === 'priority' && (
                 <>
                   <button
                     type="button"
@@ -327,7 +373,7 @@ export function BuyListPage() {
             </div>
           </Card>
         ))}
-        {!loading && items.length === 0 && !fetchError && (
+        {!loading && sortedItems.length === 0 && !fetchError && (
           <Card>
             <p className="text-sm text-slate-400">
               Aucun jeu à acheter. Ajoutez des jeux ou réimportez votre Excel.
