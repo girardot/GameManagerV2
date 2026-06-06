@@ -28,6 +28,7 @@ import {
   PROGRESS_LABELS,
   PROGRESS_OPTIONS,
   PEGI_OPTIONS,
+  parseRating,
   type Game,
   type GameProgress,
   type Tag,
@@ -79,6 +80,7 @@ export function CollectionPage() {
     progress: 'todo' as GameProgress,
     notes: '',
     pegi: '' as '' | string,
+    rating: '',
     tagNames: [] as string[],
   })
 
@@ -163,6 +165,7 @@ export function CollectionPage() {
       progress: 'todo',
       notes: '',
       pegi: '',
+      rating: '',
       tagNames: [],
     })
     setNewTagInput('')
@@ -178,6 +181,7 @@ export function CollectionPage() {
       progress: game.progress,
       notes: game.notes ?? '',
       pegi: game.pegi != null ? String(game.pegi) : '',
+      rating: game.rating != null ? String(game.rating) : '',
       tagNames: game.tags?.map((t) => t.name) ?? [],
     })
     setNewTagInput('')
@@ -207,6 +211,7 @@ export function CollectionPage() {
       progress: form.progress,
       notes: form.notes.trim() || null,
       pegi: form.pegi ? (Number(form.pegi) as Game['pegi']) : null,
+      rating: parseRating(form.rating),
     }
 
     if (editing) {
@@ -378,6 +383,7 @@ export function CollectionPage() {
                       <th className="p-3">Titre</th>
                       <th className="p-3">Format</th>
                       <th className="p-3">PEGI</th>
+                      <th className="p-3">Note</th>
                       <th className="p-3">Progression</th>
                       <th className="p-3 w-24" />
                     </tr>
@@ -407,6 +413,9 @@ export function CollectionPage() {
                         </td>
                         <td className="p-3">
                           {g.pegi != null ? `PEGI ${g.pegi}` : '—'}
+                        </td>
+                        <td className="p-3">
+                          {g.rating != null ? `${g.rating}/20` : '—'}
                         </td>
                         <td className="p-3">
                           <Badge color={progressBadgeColor[g.progress]}>
@@ -497,6 +506,7 @@ export function CollectionPage() {
                       <p className="text-sm text-slate-400">
                         {g.is_digital ? 'Démat' : 'Physique'}
                         {g.pegi != null && ` · PEGI ${g.pegi}`}
+                        {g.rating != null && ` · ${g.rating}/20`}
                       </p>
                       <div className="mt-2">
                         <Badge color={progressBadgeColor[g.progress]}>
@@ -607,6 +617,18 @@ export function CollectionPage() {
                 </option>
               ))}
             </Select>
+          </div>
+          <div>
+            <Label>Note (/20)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="20"
+              step="1"
+              placeholder="0–20"
+              value={form.rating}
+              onChange={(e) => setForm({ ...form, rating: e.target.value })}
+            />
           </div>
           <div>
             <Label>Notes</Label>

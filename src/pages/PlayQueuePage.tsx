@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal, Badge } from '../components/ui'
 import type { PlayQueueItem, PlayQueueStatus, PegiRating } from '../types'
-import { PLAY_QUEUE_STATUS_LABELS, PEGI_OPTIONS } from '../types'
+import { PLAY_QUEUE_STATUS_LABELS, PEGI_OPTIONS, parseRating } from '../types'
 
 const playQueueStatusColor: Record<PlayQueueStatus, 'indigo' | 'yellow'> = {
   todo: 'indigo',
@@ -30,6 +30,12 @@ function resolvePegi(item: PlayQueueItem): PegiRating | null {
   const joined = item.games?.pegi
   if (joined != null) return joined
   return item.pegi
+}
+
+function resolveRating(item: PlayQueueItem): number | null {
+  const joined = item.games?.rating
+  if (joined != null) return joined
+  return item.rating
 }
 
 export function PlayQueuePage() {
@@ -49,10 +55,12 @@ export function PlayQueuePage() {
     game_id: '',
     notes: '',
     pegi: '' as '' | string,
+    rating: '',
   })
   const [editForm, setEditForm] = useState({
     notes: '',
     pegi: '' as '' | string,
+    rating: '',
   })
 
   const fetchItems = useCallback(async () => {
@@ -61,7 +69,7 @@ export function PlayQueuePage() {
     const [queueRes, gamesRes] = await Promise.all([
       supabase
         .from('play_queue')
-        .select('*, consoles(name), games(progress, pegi)')
+        .select('*, consoles(name), games(progress, pegi, rating)')
         .eq('user_id', user.id)
         .order('priority'),
       supabase
@@ -159,10 +167,18 @@ export function PlayQueuePage() {
       game_id: form.game_id || null,
       notes: form.notes || null,
       pegi: form.pegi ? (Number(form.pegi) as PegiRating) : null,
+      rating: parseRating(form.rating),
       priority: getNextPriority(),
     })
     setModalOpen(false)
-    setForm({ title: '', console_id: '', game_id: '', notes: '', pegi: '' })
+    setForm({
+      title: '',
+      console_id: '',
+      game_id: '',
+      notes: '',
+      pegi: '',
+      rating: '',
+    })
     fetchItems()
   }
 
@@ -267,10 +283,12 @@ export function PlayQueuePage() {
 
   const openEdit = (item: PlayQueueItem) => {
     const pegi = resolvePegi(item)
+    const rating = resolveRating(item)
     setEditing(item)
     setEditForm({
       notes: item.notes ?? '',
       pegi: pegi != null ? String(pegi) : '',
+      rating: rating != null ? String(rating) : '',
     })
     setEditModalOpen(true)
   }
@@ -280,10 +298,14 @@ export function PlayQueuePage() {
     const pegi = editForm.pegi
       ? (Number(editForm.pegi) as PegiRating)
       : null
+    const rating = parseRating(editForm.rating)
     const notes = editForm.notes || null
 
     if (editing.game_id) {
-      await supabase.from('games').update({ pegi }).eq('id', editing.game_id)
+      await supabase
+        .from('games')
+        .update({ pegi, rating })
+        .eq('id', editing.game_id)
       await supabase
         .from('play_queue')
         .update({ notes })
@@ -291,15 +313,15 @@ export function PlayQueuePage() {
     } else {
       const gameId = await resolveGameId(editing)
       if (gameId) {
-        await supabase.from('games').update({ pegi }).eq('id', gameId)
+        await supabase.from('games').update({ pegi, rating }).eq('id', gameId)
         await supabase
           .from('play_queue')
-          .update({ notes, pegi: null })
+          .update({ notes, pegi: null, rating: null })
           .eq('id', editing.id)
       } else {
         await supabase
           .from('play_queue')
-          .update({ notes, pegi })
+          .update({ notes, pegi, rating })
           .eq('id', editing.id)
       }
     }
@@ -317,6 +339,7 @@ export function PlayQueuePage() {
         game_id: game.id,
         notes: '',
         pegi: '',
+        rating: '',
       })
     }
   }
@@ -352,6 +375,7 @@ export function PlayQueuePage() {
                 <p className="mt-0.5 text-sm text-slate-400 break-words">
                   {item.consoles?.name ?? '—'}
                   {resolvePegi(item) != null && ` · PEGI ${resolvePegi(item)}`}
+                  {resolveRating(item) != null && ` · ${resolveRating(item)}/20`}
                   {item.notes && ` · ${item.notes}`}
                 </p>
               </div>
@@ -360,7 +384,7 @@ export function PlayQueuePage() {
               <button
                 type="button"
                 onClick={() => openEdit(item)}
-                title="Modifier PEGI / notes"
+                title="Modifier PEGI, note / notes"
                 className="p-2 text-slate-400 hover:text-indigo-400"
               >
                 <Pencil className="h-4 w-4" />
@@ -484,6 +508,18 @@ export function PlayQueuePage() {
             </Select>
           </div>
           <div>
+            <Label>Note (/20)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="20"
+              step="1"
+              placeholder="0–20"
+              value={form.rating}
+              onChange={(e) => setForm({ ...form, rating: e.target.value })}
+            />
+          </div>
+          <div>
             <Label>Notes</Label>
             <Input
               value={form.notes}
@@ -517,6 +553,20 @@ export function PlayQueuePage() {
                 </option>
               ))}
             </Select>
+          </div>
+          <div>
+            <Label>Note (/20)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="20"
+              step="1"
+              placeholder="0–20"
+              value={editForm.rating}
+              onChange={(e) =>
+                setEditForm({ ...editForm, rating: e.target.value })
+              }
+            />
           </div>
           <div>
             <Label>Notes</Label>

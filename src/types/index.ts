@@ -27,6 +27,7 @@ export interface Game {
   progress: GameProgress
   notes: string | null
   pegi: PegiRating | null
+  rating: number | null
   created_at: string
   updated_at: string
   consoles?: { name: string }
@@ -42,9 +43,14 @@ export interface PlayQueueItem {
   priority: number
   notes: string | null
   pegi: PegiRating | null
+  rating: number | null
   created_at: string
   consoles?: { name: string } | null
-  games?: { progress: GameProgress; pegi: PegiRating | null } | null
+  games?: {
+    progress: GameProgress
+    pegi: PegiRating | null
+    rating: number | null
+  } | null
 }
 
 /** Statut affiché sur la file « à jouer » (jeux non terminés / non abandonnés). */
@@ -65,8 +71,16 @@ export interface BuyListItem {
   priority?: number
   notes: string | null
   pegi: PegiRating | null
+  rating: number | null
   created_at: string
   consoles?: { name: string } | null
+}
+
+export function parseRating(value: string): number | null {
+  if (!value.trim()) return null
+  const n = Number(value)
+  if (!Number.isInteger(n) || n < 0 || n > 20) return null
+  return n
 }
 
 export const PROGRESS_LABELS: Record<GameProgress, string> = {

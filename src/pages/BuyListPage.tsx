@@ -12,7 +12,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal } from '../components/ui'
 import type { BuyListItem } from '../types'
-import { PEGI_OPTIONS } from '../types'
+import { PEGI_OPTIONS, parseRating } from '../types'
 
 function isMissingPriorityColumn(message: string) {
   return (
@@ -36,6 +36,7 @@ export function BuyListPage() {
     is_digital: '' as '' | 'true' | 'false',
     price: '',
     pegi: '' as '' | string,
+    rating: '',
     notes: '',
   })
 
@@ -105,6 +106,7 @@ export function BuyListPage() {
       is_digital: '',
       price: '',
       pegi: '',
+      rating: '',
       notes: '',
     })
     setModalOpen(true)
@@ -123,6 +125,7 @@ export function BuyListPage() {
             : 'false',
       price: item.price != null ? String(item.price) : '',
       pegi: item.pegi != null ? String(item.pegi) : '',
+      rating: item.rating != null ? String(item.rating) : '',
       notes: item.notes ?? '',
     })
     setModalOpen(true)
@@ -139,6 +142,7 @@ export function BuyListPage() {
           : form.is_digital === 'true',
       price: form.price ? parseFloat(form.price) : null,
       pegi: form.pegi ? (Number(form.pegi) as BuyListItem['pegi']) : null,
+      rating: parseRating(form.rating),
       notes: form.notes || null,
     }
     if (editing) {
@@ -195,6 +199,7 @@ export function BuyListPage() {
       is_digital: item.is_digital ?? false,
       progress: 'todo',
       pegi: item.pegi,
+      rating: item.rating,
     })
     if (error) {
       if (error.code === '23505') {
@@ -271,6 +276,7 @@ export function BuyListPage() {
                   {item.is_digital != null &&
                     ` · ${item.is_digital ? 'Démat' : 'Physique'}`}
                   {item.pegi != null && ` · PEGI ${item.pegi}`}
+                  {item.rating != null && ` · ${item.rating}/20`}
                   {item.price != null && ` · ${Number(item.price).toFixed(2)} €`}
                 </p>
               </div>
@@ -398,6 +404,18 @@ export function BuyListPage() {
                 </option>
               ))}
             </Select>
+          </div>
+          <div>
+            <Label>Note (/20)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="20"
+              step="1"
+              placeholder="0–20"
+              value={form.rating}
+              onChange={(e) => setForm({ ...form, rating: e.target.value })}
+            />
           </div>
           <div>
             <Label>Notes</Label>
