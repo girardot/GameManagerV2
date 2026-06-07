@@ -14,6 +14,11 @@ import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal, Badge } from '../components/ui'
 import { SortablePriorityList } from '../components/SortablePriorityList'
 import { GameMetaBadges } from '../components/GameMetaBadges'
+import {
+  GameListCard,
+  GameListActionButton,
+  ListToolbar,
+} from '../components/GameListCard'
 import type { PlayQueueItem, PlayQueueStatus, PegiRating } from '../types'
 import { PLAY_QUEUE_STATUS_LABELS, PEGI_OPTIONS, parseRating } from '../types'
 
@@ -458,38 +463,40 @@ export function PlayQueuePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">À jouer</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold sm:text-2xl">À jouer</h1>
         <Button onClick={() => setModalOpen(true)}>
           <Plus className="h-4 w-4" />
           Ajouter
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
-          {canReorder && 'Glissez ⠿ pour réordonner. Priorité 1 = le plus urgent. '}
-          {sortedItems.length} jeu{sortedItems.length !== 1 ? 'x' : ''}
-          {loading && ' — chargement…'}
-        </p>
-        <div className="flex items-center gap-2">
-          <Label>Trier par</Label>
+      <ListToolbar
+        summary={
+          <>
+            {canReorder && 'Glissez ⠿ pour réordonner. Priorité 1 = le plus urgent. '}
+            {sortedItems.length} jeu{sortedItems.length !== 1 ? 'x' : ''}
+            {loading && ' — chargement…'}
+          </>
+        }
+        sortControl={
           <Select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as PlayQueueSort)}
-            className="w-auto min-w-[10rem]"
+            className="min-w-0 flex-1 sm:w-auto sm:min-w-[10rem]"
           >
             <option value="priority">Priorité</option>
             <option value="rating_asc">Note croissante</option>
             <option value="rating_desc">Note décroissante</option>
           </Select>
-        </div>
-      </div>
+        }
+      />
 
       <SortablePriorityList
         items={sortedItems}
         enabled={canReorder}
         onReorder={reorderItems}
+        className="space-y-3 sm:space-y-2"
         emptyState={
           !loading ? (
             <Card>
@@ -500,76 +507,70 @@ export function PlayQueuePage() {
           ) : null
         }
         renderItem={(item, idx, dragHandle) => (
-          <Card className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <div className="flex min-w-0 flex-1 items-start gap-1 sm:gap-2">
-              {dragHandle}
-              {canReorder && (
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-300">
-                  {idx + 1}
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <p className="font-medium break-words">{item.title}</p>
-                  <Badge color={playQueueStatusColor[resolvePlayStatus(item)]}>
-                    {PLAY_QUEUE_STATUS_LABELS[resolvePlayStatus(item)]}
-                  </Badge>
-                  <GameMetaBadges
-                    pegi={resolvePegi(item)}
-                    rating={resolveRating(item)}
-                  />
-                </div>
-                {(item.consoles?.name || item.notes) && (
-                  <p className="mt-1 text-sm text-slate-400 break-words">
-                    {[item.consoles?.name ?? null, item.notes || null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap justify-end gap-1 border-t border-slate-800 pt-2 sm:border-0 sm:pt-0">
-              <button
-                type="button"
-                onClick={() => openEdit(item)}
-                title="Modifier PEGI, note / notes"
-                className="p-2 text-slate-400 hover:text-indigo-400"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => markInProgress(item)}
-                title="Marquer en cours"
-                className="p-2 text-slate-400 hover:text-yellow-400"
-              >
-                <Play className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => markAsDone(item)}
-                title="Marquer terminé"
-                className="p-2 text-slate-400 hover:text-green-400"
-              >
-                <Check className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => markAsAbandoned(item)}
-                title="Marquer abandonné"
-                className="p-2 text-slate-400 hover:text-red-400"
-              >
-                <Ban className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteItem(item.id)}
-                className="p-2 text-slate-400 hover:text-red-400"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          </Card>
+          <GameListCard
+            dragHandle={dragHandle}
+            rank={idx + 1}
+            showRank={canReorder}
+            rankColor="indigo"
+            title={item.title}
+            badges={
+              <>
+                <Badge color={playQueueStatusColor[resolvePlayStatus(item)]}>
+                  {PLAY_QUEUE_STATUS_LABELS[resolvePlayStatus(item)]}
+                </Badge>
+                <GameMetaBadges
+                  pegi={resolvePegi(item)}
+                  rating={resolveRating(item)}
+                />
+              </>
+            }
+            meta={
+              item.consoles?.name || item.notes
+                ? [item.consoles?.name ?? null, item.notes || null]
+                    .filter(Boolean)
+                    .join(' · ')
+                : undefined
+            }
+            actions={
+              <>
+                <GameListActionButton
+                  label="Modifier"
+                  onClick={() => openEdit(item)}
+                  className="hover:text-indigo-400"
+                >
+                  <Pencil className="h-4 w-4" />
+                </GameListActionButton>
+                <GameListActionButton
+                  label="En cours"
+                  onClick={() => markInProgress(item)}
+                  className="hover:text-yellow-400"
+                >
+                  <Play className="h-4 w-4" />
+                </GameListActionButton>
+                <GameListActionButton
+                  label="Terminé"
+                  onClick={() => markAsDone(item)}
+                  className="hover:text-green-400"
+                >
+                  <Check className="h-4 w-4" />
+                </GameListActionButton>
+                <GameListActionButton
+                  label="Abandon"
+                  onClick={() => markAsAbandoned(item)}
+                  className="hover:text-red-400"
+                >
+                  <Ban className="h-4 w-4" />
+                </GameListActionButton>
+                <GameListActionButton
+                  label="Suppr."
+                  onClick={() => deleteItem(item.id)}
+                  className="hover:text-red-400"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </GameListActionButton>
+              </>
+            }
+          />
         )}
       />
 

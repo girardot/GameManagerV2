@@ -60,7 +60,7 @@ function SortableRow({
     <button
       type="button"
       ref={setActivatorNodeRef}
-      className="cursor-grab touch-none p-2 text-slate-500 hover:text-slate-300 active:cursor-grabbing"
+      className="cursor-grab touch-none rounded-lg p-2 text-slate-500 transition hover:bg-slate-800 hover:text-slate-300 active:cursor-grabbing sm:hover:bg-transparent"
       aria-label="Glisser pour réordonner"
       {...attributes}
       {...listeners}
@@ -73,7 +73,7 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={isDragging ? 'relative z-10 opacity-90' : undefined}
+      className={isDragging ? 'relative z-10 scale-[1.02] opacity-95 shadow-lg shadow-black/30' : undefined}
     >
       {children(dragHandle)}
     </div>
