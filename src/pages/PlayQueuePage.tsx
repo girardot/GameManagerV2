@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal, Badge } from '../components/ui'
 import { SortablePriorityList } from '../components/SortablePriorityList'
+import { GameMetaBadges } from '../components/GameMetaBadges'
 import type { PlayQueueItem, PlayQueueStatus, PegiRating } from '../types'
 import { PLAY_QUEUE_STATUS_LABELS, PEGI_OPTIONS, parseRating } from '../types'
 
@@ -508,18 +509,23 @@ export function PlayQueuePage() {
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <p className="font-medium break-words">{item.title}</p>
                   <Badge color={playQueueStatusColor[resolvePlayStatus(item)]}>
                     {PLAY_QUEUE_STATUS_LABELS[resolvePlayStatus(item)]}
                   </Badge>
+                  <GameMetaBadges
+                    pegi={resolvePegi(item)}
+                    rating={resolveRating(item)}
+                  />
                 </div>
-                <p className="mt-0.5 text-sm text-slate-400 break-words">
-                  {item.consoles?.name ?? '—'}
-                  {resolvePegi(item) != null && ` · PEGI ${resolvePegi(item)}`}
-                  {resolveRating(item) != null && ` · ${resolveRating(item)}/20`}
-                  {item.notes && ` · ${item.notes}`}
-                </p>
+                {(item.consoles?.name || item.notes) && (
+                  <p className="mt-1 text-sm text-slate-400 break-words">
+                    {[item.consoles?.name ?? null, item.notes || null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-1 border-t border-slate-800 pt-2 sm:border-0 sm:pt-0">

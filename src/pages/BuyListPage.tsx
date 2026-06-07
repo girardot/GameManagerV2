@@ -9,8 +9,9 @@ import { supabase } from '../lib/supabase'
 import { applyPriorityOrder, persistPriorityOrder } from '../lib/reorder-priority'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
-import { Button, Input, Select, Label, Card, Modal } from '../components/ui'
+import { Button, Input, Select, Label, Card, Modal, Badge } from '../components/ui'
 import { SortablePriorityList } from '../components/SortablePriorityList'
+import { GameMetaBadges } from '../components/GameMetaBadges'
 import type { BuyListItem } from '../types'
 import { PEGI_OPTIONS, parseRating } from '../types'
 
@@ -353,14 +354,28 @@ export function BuyListPage() {
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-medium break-words">{item.title}</p>
-                <p className="mt-0.5 text-sm text-slate-400 break-words">
-                  {item.consoles?.name ?? 'Console ?'}
-                  {item.is_digital != null &&
-                    ` · ${item.is_digital ? 'Démat' : 'Physique'}`}
-                  {item.pegi != null && ` · PEGI ${item.pegi}`}
-                  {item.rating != null && ` · ${item.rating}/20`}
-                  {item.price != null && ` · ${Number(item.price).toFixed(2)} €`}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="font-medium break-words">{item.title}</p>
+                  <GameMetaBadges pegi={item.pegi} rating={item.rating} />
+                  {item.price != null && (
+                    <Badge color="green">
+                      <span className="tabular-nums font-semibold">
+                        {Number(item.price).toFixed(2)} €
+                      </span>
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-sm text-slate-400 break-words">
+                  {[
+                    item.consoles?.name ?? 'Console ?',
+                    item.is_digital != null
+                      ? item.is_digital
+                        ? 'Démat'
+                        : 'Physique'
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               </div>
             </div>
