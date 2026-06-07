@@ -3,14 +3,14 @@ import {
   Plus,
   Pencil,
   Trash2,
-  ChevronUp,
-  ChevronDown,
   ShoppingBag,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { applyPriorityOrder, persistPriorityOrder } from '../lib/reorder-priority'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal } from '../components/ui'
+import { SortablePriorityList } from '../components/SortablePriorityList'
 import type { BuyListItem } from '../types'
 import { PEGI_OPTIONS, parseRating } from '../types'
 
@@ -154,6 +154,15 @@ export function BuyListPage() {
   }, [fetchItems])
 
   const sortedItems = sortBuyItems(items, sortBy)
+  const canReorder = prioritySupported && sortBy === 'priority'
+
+  const reorderItems = async (reordered: BuyListItem[]) => {
+    const orderedIds = reordered.map((item) => item.id)
+    setItems(applyPriorityOrder(items, orderedIds))
+    const client = supabase
+    if (!client) return
+    await persistPriorityOrder(client, 'buy_list', orderedIds)
+  }
 
   const total = sortedItems.reduce((s, i) => s + (Number(i.price) || 0), 0)
 
@@ -276,23 +285,6 @@ export function BuyListPage() {
     else fetchItems()
   }
 
-  const moveItem = async (id: string, direction: 'up' | 'down') => {
-    if (!prioritySupported || sortBy !== 'priority') return
-    const idx = items.findIndex((i) => i.id === id)
-    if (idx < 0) return
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (swapIdx < 0 || swapIdx >= items.length) return
-
-    if (!supabase) return
-    const a = items[idx]
-    const b = items[swapIdx]
-    await Promise.all([
-      supabase.from('buy_list').update({ priority: b.priority }).eq('id', a.id),
-      supabase.from('buy_list').update({ priority: a.priority }).eq('id', b.id),
-    ])
-    fetchItems()
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -318,7 +310,7 @@ export function BuyListPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          {prioritySupported && sortBy === 'priority' && 'Priorité 1 = le plus urgent. '}
+          {canReorder && 'Glissez ⠿ pour réordonner. Priorité 1 = le plus urgent. '}
           {sortedItems.length} jeu{sortedItems.length !== 1 ? 'x' : ''}
           {loading && ' — chargement…'}
         </p>
@@ -338,13 +330,26 @@ export function BuyListPage() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        {sortedItems.map((item, idx) => (
-          <Card key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-              {prioritySupported && sortBy === 'priority' && (
+      <SortablePriorityList
+        items={sortedItems}
+        enabled={canReorder}
+        onReorder={reorderItems}
+        emptyState={
+          !loading && !fetchError ? (
+            <Card>
+              <p className="text-sm text-slate-400">
+                Aucun jeu à acheter. Ajoutez des jeux ou réimportez votre Excel.
+              </p>
+            </Card>
+          ) : null
+        }
+        renderItem={(item, idx, dragHandle) => (
+          <Card className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-1 sm:gap-2">
+              {dragHandle}
+              {canReorder && (
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-sm font-bold text-green-300">
-                  {item.priority ?? idx + 1}
+                  {idx + 1}
                 </span>
               )}
               <div className="min-w-0 flex-1">
@@ -360,26 +365,6 @@ export function BuyListPage() {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-1 border-t border-slate-800 pt-2 sm:border-0 sm:pt-0">
-              {prioritySupported && sortBy === 'priority' && (
-                <>
-                  <button
-                    type="button"
-                    disabled={idx === 0}
-                    onClick={() => moveItem(item.id, 'up')}
-                    className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={idx === items.length - 1}
-                    onClick={() => moveItem(item.id, 'down')}
-                    className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-5 w-5" />
-                  </button>
-                </>
-              )}
               <button
                 type="button"
                 onClick={() => markAsPurchased(item)}
@@ -404,15 +389,8 @@ export function BuyListPage() {
               </button>
             </div>
           </Card>
-        ))}
-        {!loading && sortedItems.length === 0 && !fetchError && (
-          <Card>
-            <p className="text-sm text-slate-400">
-              Aucun jeu à acheter. Ajoutez des jeux ou réimportez votre Excel.
-            </p>
-          </Card>
         )}
-      </div>
+      />
 
       <Modal
         open={modalOpen}

@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Plus,
-  ChevronUp,
-  ChevronDown,
   Trash2,
   Play,
   Check,
@@ -10,9 +8,11 @@ import {
   Pencil,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { applyPriorityOrder, persistPriorityOrder } from '../lib/reorder-priority'
 import { useAuth } from '../hooks/useAuth'
 import { useConsoles } from '../hooks/useConsoles'
 import { Button, Input, Select, Label, Card, Modal, Badge } from '../components/ui'
+import { SortablePriorityList } from '../components/SortablePriorityList'
 import type { PlayQueueItem, PlayQueueStatus, PegiRating } from '../types'
 import { PLAY_QUEUE_STATUS_LABELS, PEGI_OPTIONS, parseRating } from '../types'
 
@@ -274,22 +274,14 @@ export function PlayQueuePage() {
   }
 
   const sortedItems = sortPlayQueueItems(items, sortBy)
+  const canReorder = sortBy === 'priority'
 
-  const moveItem = async (id: string, direction: 'up' | 'down') => {
-    if (sortBy !== 'priority') return
-    const idx = items.findIndex((i) => i.id === id)
-    if (idx < 0) return
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (swapIdx < 0 || swapIdx >= items.length) return
-
-    if (!supabase) return
-    const a = items[idx]
-    const b = items[swapIdx]
-    await Promise.all([
-      supabase.from('play_queue').update({ priority: b.priority }).eq('id', a.id),
-      supabase.from('play_queue').update({ priority: a.priority }).eq('id', b.id),
-    ])
-    fetchItems()
+  const reorderItems = async (reordered: PlayQueueItem[]) => {
+    const orderedIds = reordered.map((item) => item.id)
+    setItems(applyPriorityOrder(items, orderedIds))
+    const client = supabase
+    if (!client) return
+    await persistPriorityOrder(client, 'play_queue', orderedIds)
   }
 
   const resolveGameId = async (item: PlayQueueItem): Promise<string | null> => {
@@ -426,7 +418,7 @@ export function PlayQueuePage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          {sortBy === 'priority' && 'Priorité 1 = le plus urgent. '}
+          {canReorder && 'Glissez ⠿ pour réordonner. Priorité 1 = le plus urgent. '}
           {sortedItems.length} jeu{sortedItems.length !== 1 ? 'x' : ''}
           {loading && ' — chargement…'}
         </p>
@@ -444,11 +436,24 @@ export function PlayQueuePage() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        {sortedItems.map((item, idx) => (
-          <Card key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-              {sortBy === 'priority' && (
+      <SortablePriorityList
+        items={sortedItems}
+        enabled={canReorder}
+        onReorder={reorderItems}
+        emptyState={
+          !loading ? (
+            <Card>
+              <p className="text-sm text-slate-400">
+                Aucun jeu en file. Ajoutez des jeux à jouer avec une priorité.
+              </p>
+            </Card>
+          ) : null
+        }
+        renderItem={(item, idx, dragHandle) => (
+          <Card className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-1 sm:gap-2">
+              {dragHandle}
+              {canReorder && (
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-300">
                   {idx + 1}
                 </span>
@@ -501,26 +506,6 @@ export function PlayQueuePage() {
               >
                 <Ban className="h-4 w-4" />
               </button>
-              {sortBy === 'priority' && (
-                <>
-                  <button
-                    type="button"
-                    disabled={idx === 0}
-                    onClick={() => moveItem(item.id, 'up')}
-                    className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={idx === sortedItems.length - 1}
-                    onClick={() => moveItem(item.id, 'down')}
-                    className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-5 w-5" />
-                  </button>
-                </>
-              )}
               <button
                 type="button"
                 onClick={() => deleteItem(item.id)}
@@ -530,15 +515,8 @@ export function PlayQueuePage() {
               </button>
             </div>
           </Card>
-        ))}
-        {!loading && sortedItems.length === 0 && (
-          <Card>
-            <p className="text-sm text-slate-400">
-              Aucun jeu en file. Ajoutez des jeux à jouer avec une priorité.
-            </p>
-          </Card>
         )}
-      </div>
+      />
 
       <Modal
         open={modalOpen}
