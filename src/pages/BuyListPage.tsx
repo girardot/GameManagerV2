@@ -14,32 +14,62 @@ import { Button, Input, Select, Label, Card, Modal } from '../components/ui'
 import type { BuyListItem } from '../types'
 import { PEGI_OPTIONS, parseRating } from '../types'
 
-type BuyListSort = 'priority' | 'price_asc' | 'price_desc'
+type BuyListSort =
+  | 'priority'
+  | 'price_asc'
+  | 'price_desc'
+  | 'rating_asc'
+  | 'rating_desc'
 
 function sortBuyItems(items: BuyListItem[], sort: BuyListSort): BuyListItem[] {
   const copy = [...items]
+  const byPriority = (a: BuyListItem, b: BuyListItem) =>
+    (a.priority ?? 0) - (b.priority ?? 0)
+
   if (sort === 'priority') {
-    return copy.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+    return copy.sort(byPriority)
   }
   if (sort === 'price_asc') {
     return copy.sort((a, b) => {
       const pa = a.price
       const pb = b.price
-      if (pa == null && pb == null) return (a.priority ?? 0) - (b.priority ?? 0)
+      if (pa == null && pb == null) return byPriority(a, b)
       if (pa == null) return 1
       if (pb == null) return -1
       if (pa !== pb) return pa - pb
-      return (a.priority ?? 0) - (b.priority ?? 0)
+      return byPriority(a, b)
+    })
+  }
+  if (sort === 'price_desc') {
+    return copy.sort((a, b) => {
+      const pa = a.price
+      const pb = b.price
+      if (pa == null && pb == null) return byPriority(a, b)
+      if (pa == null) return 1
+      if (pb == null) return -1
+      if (pa !== pb) return pb - pa
+      return byPriority(a, b)
+    })
+  }
+  if (sort === 'rating_asc') {
+    return copy.sort((a, b) => {
+      const ra = a.rating
+      const rb = b.rating
+      if (ra == null && rb == null) return byPriority(a, b)
+      if (ra == null) return 1
+      if (rb == null) return -1
+      if (ra !== rb) return ra - rb
+      return byPriority(a, b)
     })
   }
   return copy.sort((a, b) => {
-    const pa = a.price
-    const pb = b.price
-    if (pa == null && pb == null) return (a.priority ?? 0) - (b.priority ?? 0)
-    if (pa == null) return 1
-    if (pb == null) return -1
-    if (pa !== pb) return pb - pa
-    return (a.priority ?? 0) - (b.priority ?? 0)
+    const ra = a.rating
+    const rb = b.rating
+    if (ra == null && rb == null) return byPriority(a, b)
+    if (ra == null) return 1
+    if (rb == null) return -1
+    if (ra !== rb) return rb - ra
+    return byPriority(a, b)
   })
 }
 
@@ -302,6 +332,8 @@ export function BuyListPage() {
             <option value="priority">Priorité</option>
             <option value="price_asc">Prix croissant</option>
             <option value="price_desc">Prix décroissant</option>
+            <option value="rating_asc">Note croissante</option>
+            <option value="rating_desc">Note décroissante</option>
           </Select>
         </div>
       </div>

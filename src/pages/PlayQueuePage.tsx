@@ -38,10 +38,46 @@ function resolveRating(item: PlayQueueItem): number | null {
   return item.rating
 }
 
+type PlayQueueSort = 'priority' | 'rating_asc' | 'rating_desc'
+
+function sortPlayQueueItems(
+  items: PlayQueueItem[],
+  sort: PlayQueueSort
+): PlayQueueItem[] {
+  const copy = [...items]
+  const byPriority = (a: PlayQueueItem, b: PlayQueueItem) =>
+    a.priority - b.priority
+
+  if (sort === 'priority') {
+    return copy.sort(byPriority)
+  }
+  if (sort === 'rating_asc') {
+    return copy.sort((a, b) => {
+      const ra = resolveRating(a)
+      const rb = resolveRating(b)
+      if (ra == null && rb == null) return byPriority(a, b)
+      if (ra == null) return 1
+      if (rb == null) return -1
+      if (ra !== rb) return ra - rb
+      return byPriority(a, b)
+    })
+  }
+  return copy.sort((a, b) => {
+    const ra = resolveRating(a)
+    const rb = resolveRating(b)
+    if (ra == null && rb == null) return byPriority(a, b)
+    if (ra == null) return 1
+    if (rb == null) return -1
+    if (ra !== rb) return rb - ra
+    return byPriority(a, b)
+  })
+}
+
 export function PlayQueuePage() {
   const { user } = useAuth()
   const { consoles } = useConsoles()
   const [items, setItems] = useState<PlayQueueItem[]>([])
+  const [sortBy, setSortBy] = useState<PlayQueueSort>('priority')
   const [games, setGames] = useState<
     { id: string; title: string; console_id: string; consoles?: { name: string } }[]
   >([])
@@ -237,7 +273,10 @@ export function PlayQueuePage() {
     fetchItems()
   }
 
+  const sortedItems = sortPlayQueueItems(items, sortBy)
+
   const moveItem = async (id: string, direction: 'up' | 'down') => {
+    if (sortBy !== 'priority') return
     const idx = items.findIndex((i) => i.id === id)
     if (idx < 0) return
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -385,17 +424,35 @@ export function PlayQueuePage() {
         </Button>
       </div>
 
-      <p className="text-sm text-slate-500">
-        Priorité 1 = le plus urgent. {loading && 'Chargement…'}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          {sortBy === 'priority' && 'Priorité 1 = le plus urgent. '}
+          {sortedItems.length} jeu{sortedItems.length !== 1 ? 'x' : ''}
+          {loading && ' — chargement…'}
+        </p>
+        <div className="flex items-center gap-2">
+          <Label>Trier par</Label>
+          <Select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as PlayQueueSort)}
+            className="w-auto min-w-[10rem]"
+          >
+            <option value="priority">Priorité</option>
+            <option value="rating_asc">Note croissante</option>
+            <option value="rating_desc">Note décroissante</option>
+          </Select>
+        </div>
+      </div>
 
       <div className="space-y-2">
-        {items.map((item, idx) => (
+        {sortedItems.map((item, idx) => (
           <Card key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex min-w-0 flex-1 items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-300">
-                {idx + 1}
-              </span>
+              {sortBy === 'priority' && (
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-300">
+                  {idx + 1}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium break-words">{item.title}</p>
@@ -444,22 +501,26 @@ export function PlayQueuePage() {
               >
                 <Ban className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                disabled={idx === 0}
-                onClick={() => moveItem(item.id, 'up')}
-                className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
-              >
-                <ChevronUp className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                disabled={idx === items.length - 1}
-                onClick={() => moveItem(item.id, 'down')}
-                className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
-              >
-                <ChevronDown className="h-5 w-5" />
-              </button>
+              {sortBy === 'priority' && (
+                <>
+                  <button
+                    type="button"
+                    disabled={idx === 0}
+                    onClick={() => moveItem(item.id, 'up')}
+                    className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
+                  >
+                    <ChevronUp className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === sortedItems.length - 1}
+                    onClick={() => moveItem(item.id, 'down')}
+                    className="p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-30"
+                  >
+                    <ChevronDown className="h-5 w-5" />
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => deleteItem(item.id)}
@@ -470,7 +531,7 @@ export function PlayQueuePage() {
             </div>
           </Card>
         ))}
-        {!loading && items.length === 0 && (
+        {!loading && sortedItems.length === 0 && (
           <Card>
             <p className="text-sm text-slate-400">
               Aucun jeu en file. Ajoutez des jeux à jouer avec une priorité.
