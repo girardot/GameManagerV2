@@ -111,10 +111,30 @@ export function PlayQueuePage() {
         .order('priority'),
       client
         .from('games')
-        .select('id, title, console_id, progress')
+        .select('id, title, console_id, progress, pegi, rating')
         .eq('user_id', user.id)
         .in('progress', ['todo', 'in_progress', 'abandoned']),
     ])
+
+    type GameMeta = {
+      id: string
+      progress: string
+      pegi: PegiRating | null
+      rating: number | null
+    }
+
+    const gameMetaById = new Map<string, GameMeta>()
+    const gameMetaByKey = new Map<string, GameMeta>()
+    for (const g of gamesRes.data ?? []) {
+      const meta: GameMeta = {
+        id: g.id,
+        progress: g.progress,
+        pegi: g.pegi as PegiRating | null,
+        rating: g.rating,
+      }
+      gameMetaById.set(g.id, meta)
+      gameMetaByKey.set(`${g.console_id}:${g.title}`, meta)
+    }
 
     const abandonedIds = new Set(
       (gamesRes.data ?? [])
@@ -160,7 +180,16 @@ export function PlayQueuePage() {
       .map((item) => {
         const joined = item.games
         const joinedGame = Array.isArray(joined) ? joined[0] : joined
-        const joinedProgress = joinedGame?.progress
+        const metaFromId = item.game_id
+          ? gameMetaById.get(item.game_id)
+          : undefined
+        const metaFromKey =
+          item.console_id != null
+            ? gameMetaByKey.get(`${item.console_id}:${item.title}`)
+            : undefined
+        const matchedGame = metaFromId ?? metaFromKey
+
+        const joinedProgress = joinedGame?.progress ?? matchedGame?.progress
         let progress = joinedProgress as PlayQueueStatus | undefined
         if (!progress && item.game_id) {
           progress = progressByKey.get(item.game_id)
@@ -170,12 +199,27 @@ export function PlayQueuePage() {
         }
         const resolvedProgress: PlayQueueStatus =
           progress === 'in_progress' ? 'in_progress' : 'todo'
+
+        const pegi =
+          joinedGame?.pegi ??
+          matchedGame?.pegi ??
+          item.pegi ??
+          null
+        const rating =
+          joinedGame?.rating ??
+          matchedGame?.rating ??
+          item.rating ??
+          null
+
         return {
           ...item,
+          game_id: item.game_id ?? matchedGame?.id ?? null,
+          pegi,
+          rating,
           games: {
             progress: resolvedProgress,
-            pegi: joinedGame?.pegi ?? null,
-            rating: joinedGame?.rating ?? null,
+            pegi,
+            rating,
           },
         }
       })
@@ -370,7 +414,7 @@ export function PlayQueuePage() {
         .eq('id', editing.game_id)
       await supabase
         .from('play_queue')
-        .update({ notes })
+        .update({ notes, pegi: null, rating: null })
         .eq('id', editing.id)
     } else {
       const gameId = await resolveGameId(editing)
@@ -378,7 +422,12 @@ export function PlayQueuePage() {
         await supabase.from('games').update({ pegi, rating }).eq('id', gameId)
         await supabase
           .from('play_queue')
-          .update({ notes, pegi: null, rating: null })
+          .update({
+            notes,
+            pegi: null,
+            rating: null,
+            game_id: gameId,
+          })
           .eq('id', editing.id)
       } else {
         await supabase
