@@ -100,6 +100,10 @@ function firstRelation<T>(relation: Relation<T> | undefined): T | null {
   return Array.isArray(relation) ? relation[0] ?? null : relation
 }
 
+function rows<T>(data: unknown): T[] {
+  return (data as T[] | null) ?? []
+}
+
 function consoleName(row: { consoles: Relation<ConsoleRef> }) {
   return firstRelation(row.consoles)?.name ?? ''
 }
@@ -212,7 +216,7 @@ export async function exportToExcel(
     return { gamesCount: 0, buyCount: 0, error: tagsRes.error.message }
   }
 
-  let buyItems: BuyRow[] = (buyPrimary.data as BuyRow[]) ?? []
+  let buyItems = rows<BuyRow>(buyPrimary.data)
   if (buyPrimary.error) {
     if (isMissingPriorityColumn(buyPrimary.error.message)) {
       const { data, error } = await supabase
@@ -237,20 +241,20 @@ export async function exportToExcel(
       if (error) {
         return { gamesCount: 0, buyCount: 0, error: error.message }
       }
-      buyItems = (data as BuyRow[]) ?? []
+      buyItems = rows<BuyRow>(data)
     } else {
       return { gamesCount: 0, buyCount: 0, error: buyPrimary.error.message }
     }
   }
 
-  const games = sortByConsoleThenTitle((gamesRes.data as GameRow[]) ?? [])
-  const consoles = ((consolesRes.data as ConsoleRow[]) ?? []).sort((a, b) =>
+  const games = sortByConsoleThenTitle(rows<GameRow>(gamesRes.data))
+  const consoles = rows<ConsoleRow>(consolesRes.data).sort((a, b) =>
     a.name.localeCompare(b.name, 'fr')
   )
-  const playQueue = ((playQueueRes.data as PlayQueueRow[]) ?? []).sort(
+  const playQueue = rows<PlayQueueRow>(playQueueRes.data).sort(
     (a, b) => a.priority - b.priority
   )
-  const tags = ((tagsRes.data as TagRow[]) ?? []).sort((a, b) =>
+  const tags = rows<TagRow>(tagsRes.data).sort((a, b) =>
     a.name.localeCompare(b.name, 'fr')
   )
 
