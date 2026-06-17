@@ -131,7 +131,7 @@ export function SettingsPage() {
       <Card>
         <h2 className="mb-2 font-semibold">Excel</h2>
         <p className="mb-4 text-sm text-slate-400">
-          Import et export au format Games.xlsx (feuilles Games et To Buy).
+          Import au format historique Games.xlsx et export complet des données.
         </p>
 
         <div className="space-y-4">
