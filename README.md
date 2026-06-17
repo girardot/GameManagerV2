@@ -7,7 +7,7 @@ Application web pour gérer une collection de jeux vidéo : consoles, progressio
 - **Collection** : jeux par console, format (physique / dématérialisé), progression (à faire, en cours, terminé, abandonné)
 - **À jouer** : file priorisée avec réordonnancement
 - **À acheter** : console, format, prix, total estimé
-- **Import / Export Excel** : feuilles `Games` et `To Buy` de `Games.xlsx`
+- **Import / Export Excel** : import historique `Games.xlsx` et export complet des données
 - **PWA** : installation sur l’écran d’accueil du téléphone
 
 ## Prérequis
@@ -23,6 +23,8 @@ Application web pour gérer une collection de jeux vidéo : consoles, progressio
    - [`supabase/migrations/002_buy_list_priority.sql`](supabase/migrations/002_buy_list_priority.sql) (priorité sur la liste à acheter)
    - [`supabase/migrations/003_game_notes.sql`](supabase/migrations/003_game_notes.sql) (notes par jeu)
    - [`supabase/migrations/004_tags.sql`](supabase/migrations/004_tags.sql) (tags / genres)
+   - [`supabase/migrations/005_pegi.sql`](supabase/migrations/005_pegi.sql) (classification PEGI)
+   - [`supabase/migrations/006_rating.sql`](supabase/migrations/006_rating.sql) (note personnelle)
 3. **Authentication** → activez Email et (optionnel) Google.
 4. Pour Google : configurez OAuth dans Supabase et ajoutez l’URL de redirection (`https://votre-app.vercel.app` et `http://localhost:5173`).
 5. Récupérez les clés dans **Settings → API Keys** :
@@ -81,10 +83,12 @@ supabase/migrations/
 
 ## Fichier Excel
 
-Le fichier [`Games.xlsx`](Games.xlsx) sert de référence pour la migration initiale. Colonnes mappées :
+Le fichier [`Games.xlsx`](Games.xlsx) sert de référence pour la migration initiale. Colonnes mappées à l’import :
 
 | Excel | Application |
 |-------|-------------|
 | TODO / IN_PROGRESS / DONE | todo / in_progress / done |
 | Demat | is_digital |
 | To Buy | buy_list |
+
+L’export génère un classeur `Games.xlsx` plus complet avec les feuilles `Consoles`, `Games`, `To Buy`, `Play Queue`, `Tags` et `Game Tags`, incluant les champs de base de données utiles (identifiants, relations, notes, PEGI, notes personnelles, priorités et dates).

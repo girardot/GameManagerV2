@@ -51,7 +51,8 @@ function parseGame(row: Record<string, unknown>): Game {
   const tags = (rawTags ?? [])
     .map((gt) => (Array.isArray(gt.tags) ? gt.tags[0] : gt.tags))
     .filter((t): t is Tag => Boolean(t))
-  const { game_tags: _gt, ...rest } = row
+  const rest = { ...row }
+  delete rest.game_tags
   return { ...(rest as unknown as Game), tags }
 }
 

@@ -173,14 +173,13 @@ export async function importFromExcel(
       range: 1,
     })
 
-    let maxBuyPriority = 0
     const { data: existingBuy } = await supabase
       .from('buy_list')
       .select('priority')
       .eq('user_id', userId)
       .order('priority', { ascending: false })
       .limit(1)
-    maxBuyPriority = existingBuy?.[0]?.priority ?? 0
+    let maxBuyPriority = existingBuy?.[0]?.priority ?? 0
 
     for (const row of rows) {
       const title = String(row.title ?? '').trim()
