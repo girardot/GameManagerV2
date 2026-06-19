@@ -1,17 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LogOut, Upload, Download, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { useProfile } from '../hooks/useProfile'
 import { useConsoles } from '../hooks/useConsoles'
 import { supabase } from '../lib/supabase'
 import { importFromExcel } from '../lib/import-xlsx'
 import { exportToExcel } from '../lib/export-xlsx'
-import { Button, Input, Card } from '../components/ui'
+import { Button, Input, Card, Label } from '../components/ui'
 import { appVersionLabel } from '../lib/version'
 import type { ExportReport, ImportReport } from '../types'
 
 export function SettingsPage() {
   const { user, signOut } = useAuth()
+  const { profile, loading: profileLoading, saveDisplayName } = useProfile()
   const { consoles, addConsole, deleteConsole } = useConsoles()
+  const [displayName, setDisplayName] = useState('')
+  const [displayNameSaving, setDisplayNameSaving] = useState(false)
+  const [displayNameError, setDisplayNameError] = useState<string | null>(null)
+  const [displayNameSuccess, setDisplayNameSuccess] = useState(false)
   const [consoleName, setConsoleName] = useState('')
   const [consoleError, setConsoleError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -19,6 +25,24 @@ export function SettingsPage() {
   const [addTodoToQueue, setAddTodoToQueue] = useState(true)
   const [report, setReport] = useState<ImportReport | null>(null)
   const [exportReport, setExportReport] = useState<ExportReport | null>(null)
+
+  useEffect(() => {
+    if (profile?.display_name != null) {
+      setDisplayName(profile.display_name)
+    } else if (user?.email) {
+      setDisplayName(user.email.split('@')[0])
+    }
+  }, [profile?.display_name, user?.email])
+
+  const handleSaveDisplayName = async () => {
+    setDisplayNameSaving(true)
+    setDisplayNameError(null)
+    setDisplayNameSuccess(false)
+    const { error } = await saveDisplayName(displayName)
+    if (error) setDisplayNameError(error)
+    else setDisplayNameSuccess(true)
+    setDisplayNameSaving(false)
+  }
 
   const handleAddConsole = async () => {
     if (!consoleName.trim()) return
@@ -88,6 +112,38 @@ export function SettingsPage() {
       <Card>
         <h2 className="mb-2 font-semibold">Compte</h2>
         <p className="text-sm text-slate-400 break-all">{user?.email}</p>
+        <div className="mt-4 space-y-2">
+          <Label>Pseudo (visible par vos amis)</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={displayName}
+              onChange={(e) => {
+                setDisplayName(e.target.value)
+                setDisplayNameSuccess(false)
+              }}
+              placeholder="Votre pseudo"
+              maxLength={50}
+              disabled={profileLoading || displayNameSaving}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSaveDisplayName}
+              disabled={
+                profileLoading ||
+                displayNameSaving ||
+                !displayName.trim()
+              }
+            >
+              {displayNameSaving ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </div>
+          {displayNameError && (
+            <p className="text-sm text-red-400">{displayNameError}</p>
+          )}
+          {displayNameSuccess && (
+            <p className="text-sm text-green-400">Pseudo enregistré.</p>
+          )}
+        </div>
         <Button variant="ghost" className="mt-3" onClick={() => signOut()}>
           <LogOut className="h-4 w-4" />
           Déconnexion
