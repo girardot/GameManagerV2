@@ -7,10 +7,9 @@ import { PROGRESS_LABELS, type GameProgress } from '../types'
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const [nextToPlay, setNextToPlay] = useState<{
-    title: string
-    consoleName: string | null
-  } | null>(null)
+  const [nextToPlay, setNextToPlay] = useState<
+    { title: string; consoleName: string | null }[]
+  >([])
   const [stats, setStats] = useState({
     total: 0,
     byProgress: {} as Record<GameProgress, number>,
@@ -79,36 +78,37 @@ export function DashboardPage() {
       const abandonedKeys = new Set(
         (abandonedRes.data ?? []).map((g) => `${g.console_id}:${g.title}`)
       )
-      const nextItem = (queueListRes.data ?? []).find(
-        (item: {
-          game_id: string | null
-          console_id: string | null
-          title: string
-        }) => {
-          if (item.game_id && abandonedIds.has(item.game_id)) return false
-          if (
-            item.console_id &&
-            abandonedKeys.has(`${item.console_id}:${item.title}`)
-          ) {
-            return false
+      const nextItems = (queueListRes.data ?? [])
+        .filter(
+          (item: {
+            game_id: string | null
+            console_id: string | null
+            title: string
+          }) => {
+            if (item.game_id && abandonedIds.has(item.game_id)) return false
+            if (
+              item.console_id &&
+              abandonedKeys.has(`${item.console_id}:${item.title}`)
+            ) {
+              return false
+            }
+            return true
           }
-          return true
-        }
-      )
-
-      if (nextItem) {
-        const c = nextItem.consoles as
-          | { name: string }
-          | { name: string }[]
-          | null
-        const consoleName = Array.isArray(c) ? c[0]?.name : c?.name
-        setNextToPlay({
-          title: nextItem.title,
-          consoleName: consoleName ?? null,
+        )
+        .slice(0, 3)
+        .map((item) => {
+          const c = item.consoles as
+            | { name: string }
+            | { name: string }[]
+            | null
+          const consoleName = Array.isArray(c) ? c[0]?.name : c?.name
+          return {
+            title: item.title,
+            consoleName: consoleName ?? null,
+          }
         })
-      } else {
-        setNextToPlay(null)
-      }
+
+      setNextToPlay(nextItems)
     }
 
     load()
@@ -118,16 +118,33 @@ export function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Tableau de bord</h1>
 
-      {nextToPlay && (
+      {nextToPlay.length > 0 && (
         <Link
           to="/a-jouer"
           className="block rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-5 transition hover:border-yellow-500/50"
         >
-          <p className="text-sm font-medium text-yellow-300">Prochain à jouer</p>
-          <p className="mt-1 text-xl font-bold">{nextToPlay.title}</p>
-          {nextToPlay.consoleName && (
-            <p className="mt-1 text-sm text-slate-400">{nextToPlay.consoleName}</p>
-          )}
+          <p className="text-sm font-medium text-yellow-300">
+            {nextToPlay.length === 1
+              ? 'Prochain à jouer'
+              : 'Prochains à jouer'}
+          </p>
+          <ol className="mt-2 space-y-3">
+            {nextToPlay.map((game, idx) => (
+              <li key={`${game.title}-${idx}`} className="flex gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-yellow-500/20 text-sm font-bold text-yellow-300">
+                  {idx + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold leading-tight">{game.title}</p>
+                  {game.consoleName && (
+                    <p className="mt-0.5 text-sm text-slate-400">
+                      {game.consoleName}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
         </Link>
       )}
 
