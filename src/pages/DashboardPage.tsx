@@ -3,13 +3,52 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { Card, Badge } from '../components/ui'
-import { PROGRESS_LABELS, type GameProgress } from '../types'
+import { GameMetaBadges } from '../components/GameMetaBadges'
+import { PROGRESS_LABELS, type GameProgress, type PegiRating } from '../types'
+
+type NextToPlayItem = {
+  title: string
+  consoleName: string | null
+  pegi: PegiRating | null
+  rating: number | null
+}
+
+type GameMeta = {
+  pegi: PegiRating | null
+  rating: number | null
+}
+
+function resolveQueueMeta(
+  item: {
+    title: string
+    console_id: string | null
+    game_id: string | null
+    pegi: PegiRating | null
+    rating: number | null
+    games?: { pegi: PegiRating | null; rating: number | null } | Array<{
+      pegi: PegiRating | null
+      rating: number | null
+    }> | null
+  },
+  gameMetaById: Map<string, GameMeta>,
+  gameMetaByKey: Map<string, GameMeta>
+): GameMeta {
+  const joined = item.games
+  const joinedGame = Array.isArray(joined) ? joined[0] : joined
+  const matched =
+    (item.game_id ? gameMetaById.get(item.game_id) : undefined) ??
+    (item.console_id
+      ? gameMetaByKey.get(`${item.console_id}:${item.title}`)
+      : undefined)
+  return {
+    pegi: joinedGame?.pegi ?? matched?.pegi ?? item.pegi ?? null,
+    rating: joinedGame?.rating ?? matched?.rating ?? item.rating ?? null,
+  }
+}
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const [nextToPlay, setNextToPlay] = useState<
-    { title: string; consoleName: string | null }[]
-  >([])
+  const [nextToPlay, setNextToPlay] = useState<NextToPlayItem[]>([])
   const [stats, setStats] = useState({
     total: 0,
     byProgress: {} as Record<GameProgress, number>,
@@ -23,9 +62,9 @@ export function DashboardPage() {
     if (!supabase || !user) return
 
     async function load() {
-      const [gamesRes, consolesRes, queueRes, buyRes, queueListRes, abandonedRes] =
+      const [gamesRes, consolesRes, queueRes, buyRes, queueListRes] =
         await Promise.all([
-          supabase!.from('games').select('progress').eq('user_id', user!.id),
+          supabase!.from('games').select('id, title, console_id, progress, pegi, rating').eq('user_id', user!.id),
           supabase!
             .from('consoles')
             .select('id', { count: 'exact', head: true })
@@ -37,14 +76,11 @@ export function DashboardPage() {
           supabase!.from('buy_list').select('price').eq('user_id', user!.id),
           supabase!
             .from('play_queue')
-            .select('title, console_id, game_id, consoles(name)')
+            .select(
+              'title, console_id, game_id, pegi, rating, consoles(name), games(pegi, rating)'
+            )
             .eq('user_id', user!.id)
             .order('priority'),
-          supabase!
-            .from('games')
-            .select('id, title, console_id')
-            .eq('user_id', user!.id)
-            .eq('progress', 'abandoned'),
         ])
 
       const byProgress: Record<GameProgress, number> = {
@@ -72,12 +108,25 @@ export function DashboardPage() {
         buyTotal,
       })
 
-      const abandonedIds = new Set(
-        (abandonedRes.data ?? []).map((g) => g.id)
+      const abandonedGames = (gamesRes.data ?? []).filter(
+        (g) => g.progress === 'abandoned'
       )
+      const abandonedIds = new Set(abandonedGames.map((g) => g.id))
       const abandonedKeys = new Set(
-        (abandonedRes.data ?? []).map((g) => `${g.console_id}:${g.title}`)
+        abandonedGames.map((g) => `${g.console_id}:${g.title}`)
       )
+
+      const gameMetaById = new Map<string, GameMeta>()
+      const gameMetaByKey = new Map<string, GameMeta>()
+      for (const g of gamesRes.data ?? []) {
+        const meta: GameMeta = {
+          pegi: g.pegi as PegiRating | null,
+          rating: g.rating,
+        }
+        gameMetaById.set(g.id, meta)
+        gameMetaByKey.set(`${g.console_id}:${g.title}`, meta)
+      }
+
       const nextItems = (queueListRes.data ?? [])
         .filter(
           (item: {
@@ -102,9 +151,16 @@ export function DashboardPage() {
             | { name: string }[]
             | null
           const consoleName = Array.isArray(c) ? c[0]?.name : c?.name
+          const { pegi, rating } = resolveQueueMeta(
+            item as Parameters<typeof resolveQueueMeta>[0],
+            gameMetaById,
+            gameMetaByKey
+          )
           return {
             title: item.title,
             consoleName: consoleName ?? null,
+            pegi,
+            rating,
           }
         })
 
@@ -136,11 +192,14 @@ export function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-lg font-bold leading-tight">{game.title}</p>
-                  {game.consoleName && (
-                    <p className="mt-0.5 text-sm text-slate-400">
-                      {game.consoleName}
-                    </p>
-                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {game.consoleName && (
+                      <span className="text-sm text-slate-400">
+                        {game.consoleName}
+                      </span>
+                    )}
+                    <GameMetaBadges pegi={game.pegi} rating={game.rating} />
+                  </div>
                 </div>
               </li>
             ))}
