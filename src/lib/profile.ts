@@ -16,3 +16,13 @@ export async function ensureProfile(user: User) {
     { onConflict: 'id' }
   )
 }
+
+export function profileLabel(
+  email: string,
+  displayName: string | null | undefined
+) {
+  if (displayName && displayName !== email.split('@')[0]) {
+    return `${displayName} (${email})`
+  }
+  return email
+}

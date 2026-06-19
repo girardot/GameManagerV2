@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Check, Clock, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import { Card, Badge } from '../components/ui'
+import { friendProfile, useFriendships } from '../hooks/useFriendships'
+import { profileLabel } from '../lib/profile'
+import { Card, Badge, Button } from '../components/ui'
 import { GameMetaBadges } from '../components/GameMetaBadges'
 import { PROGRESS_LABELS, type GameProgress, type PegiRating } from '../types'
 
@@ -63,6 +66,14 @@ function consoleNameFromJoin(
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const {
+    incomingPending,
+    outgoingPending,
+    loading: friendshipsLoading,
+    acceptRequest,
+    rejectRequest,
+  } = useFriendships()
+  const [actingId, setActingId] = useState<string | null>(null)
   const [nextToPlay, setNextToPlay] = useState<NextToPlayItem[]>([])
   const [nextToBuy, setNextToBuy] = useState<NextToBuyItem[]>([])
   const [stats, setStats] = useState({
@@ -209,6 +220,18 @@ export function DashboardPage() {
     load()
   }, [user])
 
+  const runFriendAction = async (
+    id: string,
+    action: () => Promise<{ error: string | null }>
+  ) => {
+    setActingId(id)
+    await action()
+    setActingId(null)
+  }
+
+  const hasPendingFriendships =
+    incomingPending.length > 0 || outgoingPending.length > 0
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Tableau de bord</h1>
@@ -296,6 +319,106 @@ export function DashboardPage() {
             </Link>
           )}
         </div>
+      )}
+
+      {hasPendingFriendships && (
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-slate-200">
+              Demandes d&apos;amis
+            </h2>
+            <Link
+              to="/amis"
+              className="text-sm text-indigo-400 hover:text-indigo-300"
+            >
+              Voir tout
+            </Link>
+          </div>
+
+          {friendshipsLoading ? (
+            <p className="text-sm text-slate-400">Chargement…</p>
+          ) : (
+            <div
+              className={`grid gap-4 ${
+                incomingPending.length > 0 && outgoingPending.length > 0
+                  ? 'md:grid-cols-2'
+                  : ''
+              }`}
+            >
+              {incomingPending.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-400">Reçues</p>
+                  <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800">
+                    {incomingPending.map((f) => {
+                      const profile = friendProfile(f, user!.id)
+                      return (
+                        <li
+                          key={f.id}
+                          className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <span className="truncate text-sm text-slate-200">
+                            {profileLabel(
+                              profile?.email ?? '…',
+                              profile?.display_name
+                            )}
+                          </span>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              disabled={actingId === f.id}
+                              onClick={() =>
+                                runFriendAction(f.id, () => acceptRequest(f.id))
+                              }
+                            >
+                              <Check className="h-4 w-4" />
+                              Accepter
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              disabled={actingId === f.id}
+                              onClick={() =>
+                                runFriendAction(f.id, () => rejectRequest(f.id))
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                              Refuser
+                            </Button>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {outgoingPending.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-400">Envoyées</p>
+                  <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800">
+                    {outgoingPending.map((f) => (
+                      <li
+                        key={f.id}
+                        className="flex items-center gap-2 p-3 text-sm text-slate-200"
+                      >
+                        <Clock className="h-4 w-4 shrink-0 text-amber-400" />
+                        <span className="min-w-0 truncate">
+                          {profileLabel(
+                            f.addressee?.email ?? '…',
+                            f.addressee?.display_name
+                          )}
+                        </span>
+                        <span className="shrink-0 text-xs text-slate-500">
+                          En attente
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
