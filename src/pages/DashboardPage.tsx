@@ -213,75 +213,89 @@ export function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Tableau de bord</h1>
 
-      {nextToPlay.length > 0 && (
-        <Link
-          to="/a-jouer"
-          className="block rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-5 transition hover:border-yellow-500/50"
+      {(nextToPlay.length > 0 || nextToBuy.length > 0) && (
+        <div
+          className={`grid gap-4 ${
+            nextToPlay.length > 0 && nextToBuy.length > 0
+              ? 'md:grid-cols-2'
+              : ''
+          }`}
         >
-          <p className="text-sm font-medium text-yellow-300">
-            {nextToPlay.length === 1
-              ? 'Prochain à jouer'
-              : 'Prochains à jouer'}
-          </p>
-          <ol className="mt-2 space-y-3">
-            {nextToPlay.map((game, idx) => (
-              <li key={`${game.title}-${idx}`} className="flex gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-yellow-500/20 text-sm font-bold text-yellow-300">
-                  {idx + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-lg font-bold leading-tight">{game.title}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    {game.consoleName && (
-                      <span className="text-sm text-slate-400">
-                        {game.consoleName}
-                      </span>
-                    )}
-                    <GameMetaBadges pegi={game.pegi} rating={game.rating} />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Link>
-      )}
+          {nextToPlay.length > 0 && (
+            <Link
+              to="/a-jouer"
+              className="block h-full rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-5 transition hover:border-yellow-500/50"
+            >
+              <p className="text-sm font-medium text-yellow-300">
+                {nextToPlay.length === 1
+                  ? 'Prochain à jouer'
+                  : 'Prochains à jouer'}
+              </p>
+              <ol className="mt-2 space-y-3">
+                {nextToPlay.map((game, idx) => (
+                  <li key={`${game.title}-${idx}`} className="flex gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-yellow-500/20 text-sm font-bold text-yellow-300">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-lg font-bold leading-tight">
+                        {game.title}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {game.consoleName && (
+                          <span className="text-sm text-slate-400">
+                            {game.consoleName}
+                          </span>
+                        )}
+                        <GameMetaBadges pegi={game.pegi} rating={game.rating} />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Link>
+          )}
 
-      {nextToBuy.length > 0 && (
-        <Link
-          to="/a-acheter"
-          className="block rounded-xl border border-green-500/30 bg-green-500/10 p-5 transition hover:border-green-500/50"
-        >
-          <p className="text-sm font-medium text-green-300">
-            {nextToBuy.length === 1
-              ? 'Prochain à acheter'
-              : 'Prochains à acheter'}
-          </p>
-          <ol className="mt-2 space-y-3">
-            {nextToBuy.map((game, idx) => (
-              <li key={`buy-${game.title}-${idx}`} className="flex gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-sm font-bold text-green-300">
-                  {idx + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-lg font-bold leading-tight">{game.title}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    {game.consoleName && (
-                      <span className="text-sm text-slate-400">
-                        {game.consoleName}
-                      </span>
-                    )}
-                    {game.price != null && (
-                      <span className="text-sm font-semibold text-green-300">
-                        {game.price.toFixed(2)} €
-                      </span>
-                    )}
-                    <GameMetaBadges pegi={game.pegi} rating={game.rating} />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Link>
+          {nextToBuy.length > 0 && (
+            <Link
+              to="/a-acheter"
+              className="block h-full rounded-xl border border-green-500/30 bg-green-500/10 p-5 transition hover:border-green-500/50"
+            >
+              <p className="text-sm font-medium text-green-300">
+                {nextToBuy.length === 1
+                  ? 'Prochain à acheter'
+                  : 'Prochains à acheter'}
+              </p>
+              <ol className="mt-2 space-y-3">
+                {nextToBuy.map((game, idx) => (
+                  <li key={`buy-${game.title}-${idx}`} className="flex gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-sm font-bold text-green-300">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-lg font-bold leading-tight">
+                        {game.title}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {game.consoleName && (
+                          <span className="text-sm text-slate-400">
+                            {game.consoleName}
+                          </span>
+                        )}
+                        {game.price != null && (
+                          <span className="text-sm font-semibold text-green-300">
+                            {game.price.toFixed(2)} €
+                          </span>
+                        )}
+                        <GameMetaBadges pegi={game.pegi} rating={game.rating} />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Link>
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
