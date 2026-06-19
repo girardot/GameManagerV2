@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { Friendship, Profile } from '../types'
@@ -29,23 +29,27 @@ async function loadProfiles(ids: string[]): Promise<Map<string, Profile>> {
   return map
 }
 
+export function friendProfile(f: Friendship, userId: string): Profile | undefined {
+  return f.requester_id === userId ? f.addressee : f.requester
+}
+
 export function useFriendships() {
   const { user } = useAuth()
-  const [outgoingPending, setOutgoingPending] = useState<Friendship[]>([])
+  const [friendships, setFriendships] = useState<Friendship[]>([])
   const [loading, setLoading] = useState(true)
 
-  const fetchOutgoingPending = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!supabase || !user) return
     setLoading(true)
     const { data } = await supabase
       .from('friendships')
       .select('*')
-      .eq('requester_id', user.id)
-      .eq('status', 'pending')
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
     const rows = data ?? []
-    const profiles = await loadProfiles(rows.map((r) => r.addressee_id))
-    setOutgoingPending(
+    const profileIds = rows.flatMap((r) => [r.requester_id, r.addressee_id])
+    const profiles = await loadProfiles(profileIds)
+    setFriendships(
       rows.map((row) =>
         mapFriendship(row as Record<string, unknown>, profiles)
       )
@@ -54,8 +58,29 @@ export function useFriendships() {
   }, [user])
 
   useEffect(() => {
-    fetchOutgoingPending()
-  }, [fetchOutgoingPending])
+    refresh()
+  }, [refresh])
+
+  const outgoingPending = useMemo(
+    () =>
+      friendships.filter(
+        (f) => f.requester_id === user?.id && f.status === 'pending'
+      ),
+    [friendships, user?.id]
+  )
+
+  const incomingPending = useMemo(
+    () =>
+      friendships.filter(
+        (f) => f.addressee_id === user?.id && f.status === 'pending'
+      ),
+    [friendships, user?.id]
+  )
+
+  const acceptedFriends = useMemo(
+    () => friendships.filter((f) => f.status === 'accepted'),
+    [friendships]
+  )
 
   const sendFriendRequest = async (email: string) => {
     if (!supabase || !user) return { error: 'Non connecté' }
@@ -83,22 +108,51 @@ export function useFriendships() {
       }
       return { error: error.message }
     }
-    await fetchOutgoingPending()
+    await refresh()
     return { error: null }
   }
 
   const cancelOutgoing = async (id: string) => {
     if (!supabase) return { error: 'Non configuré' }
     const { error } = await supabase.from('friendships').delete().eq('id', id)
-    if (!error) await fetchOutgoingPending()
+    if (!error) await refresh()
+    return { error: error?.message ?? null }
+  }
+
+  const respondToRequest = async (
+    id: string,
+    status: 'accepted' | 'rejected'
+  ) => {
+    if (!supabase) return { error: 'Non configuré' }
+    const { error } = await supabase
+      .from('friendships')
+      .update({
+        status,
+        responded_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+    if (!error) await refresh()
+    return { error: error?.message ?? null }
+  }
+
+  const removeFriend = async (id: string) => {
+    if (!supabase) return { error: 'Non configuré' }
+    const { error } = await supabase.from('friendships').delete().eq('id', id)
+    if (!error) await refresh()
     return { error: error?.message ?? null }
   }
 
   return {
+    friendships,
     outgoingPending,
+    incomingPending,
+    acceptedFriends,
     loading,
     sendFriendRequest,
     cancelOutgoing,
-    refresh: fetchOutgoingPending,
+    acceptRequest: (id: string) => respondToRequest(id, 'accepted'),
+    rejectRequest: (id: string) => respondToRequest(id, 'rejected'),
+    removeFriend,
+    refresh,
   }
 }

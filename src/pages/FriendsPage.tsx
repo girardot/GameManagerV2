@@ -1,6 +1,10 @@
 import { useState } from 'react'
-import { UserPlus, Clock, X } from 'lucide-react'
-import { useFriendships } from '../hooks/useFriendships'
+import { UserPlus, Clock, X, Check, UserMinus, Users } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
+import {
+  friendProfile,
+  useFriendships,
+} from '../hooks/useFriendships'
 import { Button, Input, Card } from '../components/ui'
 
 function profileLabel(email: string, displayName: string | null | undefined) {
@@ -11,12 +15,23 @@ function profileLabel(email: string, displayName: string | null | undefined) {
 }
 
 export function FriendsPage() {
-  const { outgoingPending, loading, sendFriendRequest, cancelOutgoing } =
-    useFriendships()
+  const {
+    outgoingPending,
+    incomingPending,
+    acceptedFriends,
+    loading,
+    sendFriendRequest,
+    cancelOutgoing,
+    acceptRequest,
+    rejectRequest,
+    removeFriend,
+  } = useFriendships()
+  const { user } = useAuth()
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [actingId, setActingId] = useState<string | null>(null)
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,6 +45,12 @@ export function FriendsPage() {
       setEmail('')
     }
     setSending(false)
+  }
+
+  const runAction = async (id: string, action: () => Promise<{ error: string | null }>) => {
+    setActingId(id)
+    await action()
+    setActingId(null)
   }
 
   return (
@@ -63,6 +84,55 @@ export function FriendsPage() {
         {error && <p className="text-sm text-red-400">{error}</p>}
         {success && <p className="text-sm text-green-400">{success}</p>}
       </Card>
+
+      {incomingPending.length > 0 && (
+        <Card className="space-y-3">
+          <h2 className="text-lg font-semibold text-slate-200">
+            Demandes reçues
+          </h2>
+          <ul className="divide-y divide-slate-800">
+            {incomingPending.map((f) => {
+              const profile = friendProfile(f, user!.id)
+              return (
+                <li
+                  key={f.id}
+                  className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="truncate text-sm text-slate-200">
+                    {profileLabel(
+                      profile?.email ?? '…',
+                      profile?.display_name
+                    )}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      disabled={actingId === f.id}
+                      onClick={() =>
+                        runAction(f.id, () => acceptRequest(f.id))
+                      }
+                    >
+                      <Check className="h-4 w-4" />
+                      Accepter
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={actingId === f.id}
+                      onClick={() =>
+                        runAction(f.id, () => rejectRequest(f.id))
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                      Refuser
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
+      )}
 
       <Card className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-200">
@@ -102,6 +172,49 @@ export function FriendsPage() {
                 </Button>
               </li>
             ))}
+          </ul>
+        )}
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-200">Mes amis</h2>
+        {loading ? (
+          <p className="text-sm text-slate-400">Chargement…</p>
+        ) : acceptedFriends.length === 0 ? (
+          <p className="text-sm text-slate-500">Aucun ami pour le moment.</p>
+        ) : (
+          <ul className="divide-y divide-slate-800">
+            {acceptedFriends.map((f) => {
+              const profile = friendProfile(f, user!.id)
+              return (
+                <li
+                  key={f.id}
+                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Users className="h-4 w-4 shrink-0 text-indigo-400" />
+                    <span className="truncate text-sm text-slate-200">
+                      {profileLabel(
+                        profile?.email ?? '…',
+                        profile?.display_name
+                      )}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="shrink-0 text-slate-400 hover:text-red-400"
+                    disabled={actingId === f.id}
+                    onClick={() =>
+                      runAction(f.id, () => removeFriend(f.id))
+                    }
+                    title="Retirer cet ami"
+                  >
+                    <UserMinus className="h-4 w-4" />
+                  </Button>
+                </li>
+              )
+            })}
           </ul>
         )}
       </Card>
