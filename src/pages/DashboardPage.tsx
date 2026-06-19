@@ -13,6 +13,14 @@ type NextToPlayItem = {
   rating: number | null
 }
 
+type NextToBuyItem = {
+  title: string
+  consoleName: string | null
+  price: number | null
+  pegi: PegiRating | null
+  rating: number | null
+}
+
 type GameMeta = {
   pegi: PegiRating | null
   rating: number | null
@@ -46,9 +54,17 @@ function resolveQueueMeta(
   }
 }
 
+function consoleNameFromJoin(
+  c: { name: string } | { name: string }[] | null | undefined
+): string | null {
+  const consoleName = Array.isArray(c) ? c[0]?.name : c?.name
+  return consoleName ?? null
+}
+
 export function DashboardPage() {
   const { user } = useAuth()
   const [nextToPlay, setNextToPlay] = useState<NextToPlayItem[]>([])
+  const [nextToBuy, setNextToBuy] = useState<NextToBuyItem[]>([])
   const [stats, setStats] = useState({
     total: 0,
     byProgress: {} as Record<GameProgress, number>,
@@ -62,7 +78,7 @@ export function DashboardPage() {
     if (!supabase || !user) return
 
     async function load() {
-      const [gamesRes, consolesRes, queueRes, buyRes, queueListRes] =
+      const [gamesRes, consolesRes, queueRes, buyListRes, queueListRes] =
         await Promise.all([
           supabase!.from('games').select('id, title, console_id, progress, pegi, rating').eq('user_id', user!.id),
           supabase!
@@ -73,7 +89,11 @@ export function DashboardPage() {
             .from('play_queue')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', user!.id),
-          supabase!.from('buy_list').select('price').eq('user_id', user!.id),
+          supabase!
+            .from('buy_list')
+            .select('title, price, pegi, rating, consoles(name)')
+            .eq('user_id', user!.id)
+            .order('priority'),
           supabase!
             .from('play_queue')
             .select(
@@ -94,7 +114,8 @@ export function DashboardPage() {
         if (p in byProgress) byProgress[p]++
       }
 
-      const buyTotal = (buyRes.data ?? []).reduce(
+      const buyItems = buyListRes.data ?? []
+      const buyTotal = buyItems.reduce(
         (sum, item) => sum + (Number(item.price) || 0),
         0
       )
@@ -104,7 +125,7 @@ export function DashboardPage() {
         byProgress,
         consoles: consolesRes.count ?? 0,
         playQueue: queueRes.count ?? 0,
-        buyList: buyRes.data?.length ?? 0,
+        buyList: buyItems.length,
         buyTotal,
       })
 
@@ -146,11 +167,13 @@ export function DashboardPage() {
         )
         .slice(0, 3)
         .map((item) => {
-          const c = item.consoles as
-            | { name: string }
-            | { name: string }[]
-            | null
-          const consoleName = Array.isArray(c) ? c[0]?.name : c?.name
+          const consoleName = consoleNameFromJoin(
+            item.consoles as
+              | { name: string }
+              | { name: string }[]
+              | null
+              | undefined
+          )
           const { pegi, rating } = resolveQueueMeta(
             item as Parameters<typeof resolveQueueMeta>[0],
             gameMetaById,
@@ -165,6 +188,22 @@ export function DashboardPage() {
         })
 
       setNextToPlay(nextItems)
+
+      setNextToBuy(
+        buyItems.slice(0, 3).map((item) => ({
+          title: item.title,
+          consoleName: consoleNameFromJoin(
+            item.consoles as
+              | { name: string }
+              | { name: string }[]
+              | null
+              | undefined
+          ),
+          price: item.price != null ? Number(item.price) : null,
+          pegi: item.pegi as PegiRating | null,
+          rating: item.rating,
+        }))
+      )
     }
 
     load()
@@ -196,6 +235,44 @@ export function DashboardPage() {
                     {game.consoleName && (
                       <span className="text-sm text-slate-400">
                         {game.consoleName}
+                      </span>
+                    )}
+                    <GameMetaBadges pegi={game.pegi} rating={game.rating} />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Link>
+      )}
+
+      {nextToBuy.length > 0 && (
+        <Link
+          to="/a-acheter"
+          className="block rounded-xl border border-green-500/30 bg-green-500/10 p-5 transition hover:border-green-500/50"
+        >
+          <p className="text-sm font-medium text-green-300">
+            {nextToBuy.length === 1
+              ? 'Prochain à acheter'
+              : 'Prochains à acheter'}
+          </p>
+          <ol className="mt-2 space-y-3">
+            {nextToBuy.map((game, idx) => (
+              <li key={`buy-${game.title}-${idx}`} className="flex gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-sm font-bold text-green-300">
+                  {idx + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold leading-tight">{game.title}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {game.consoleName && (
+                      <span className="text-sm text-slate-400">
+                        {game.consoleName}
+                      </span>
+                    )}
+                    {game.price != null && (
+                      <span className="text-sm font-semibold text-green-300">
+                        {game.price.toFixed(2)} €
                       </span>
                     )}
                     <GameMetaBadges pegi={game.pegi} rating={game.rating} />
