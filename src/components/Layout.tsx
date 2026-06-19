@@ -5,6 +5,7 @@ import {
   ListOrdered,
   ShoppingCart,
   Settings,
+  Users,
   LogOut,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/collection', icon: Library, label: 'Collection' },
   { to: '/a-jouer', icon: ListOrdered, label: 'À jouer' },
   { to: '/a-acheter', icon: ShoppingCart, label: 'À acheter' },
+  { to: '/amis', icon: Users, label: 'Amis' },
   { to: '/parametres', icon: Settings, label: 'Profil' },
 ]
 

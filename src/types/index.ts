@@ -113,3 +113,23 @@ export interface ExportReport {
   playQueueCount: number
   error: string | null
 }
+
+export type FriendshipStatus = 'pending' | 'accepted' | 'rejected'
+
+export interface Profile {
+  id: string
+  email: string
+  display_name: string | null
+  created_at?: string
+}
+
+export interface Friendship {
+  id: string
+  requester_id: string
+  addressee_id: string
+  status: FriendshipStatus
+  created_at: string
+  responded_at: string | null
+  requester?: Profile
+  addressee?: Profile
+}

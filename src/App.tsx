@@ -8,6 +8,7 @@ import { CollectionPage } from './pages/CollectionPage'
 import { PlayQueuePage } from './pages/PlayQueuePage'
 import { BuyListPage } from './pages/BuyListPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { FriendsPage } from './pages/FriendsPage'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -29,6 +30,7 @@ function ProtectedRoutes() {
         <Route path="collection" element={<CollectionPage />} />
         <Route path="a-jouer" element={<PlayQueuePage />} />
         <Route path="a-acheter" element={<BuyListPage />} />
+        <Route path="amis" element={<FriendsPage />} />
         <Route path="parametres" element={<SettingsPage />} />
       </Route>
     </Routes>
