@@ -50,15 +50,15 @@ export function Layout() {
               <span>{label}</span>
             </NavLink>
           ))}
+          <button
+            type="button"
+            onClick={() => signOut()}
+            className="flex flex-col items-center gap-0.5 px-2 py-3 text-xs text-slate-400 hover:text-red-400 md:flex-row md:gap-2 md:rounded-lg md:px-3 md:py-1.5 md:text-sm md:hover:bg-slate-800/50"
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            <span>Déconnexion</span>
+          </button>
         </nav>
-        <button
-          type="button"
-          onClick={() => signOut()}
-          className="hidden md:flex items-center gap-2 px-3 py-3 text-sm text-slate-400 hover:text-red-400 border-t border-slate-800 mt-auto"
-        >
-          <LogOut className="h-4 w-4" />
-          Déconnexion
-        </button>
       </aside>
 
       <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
