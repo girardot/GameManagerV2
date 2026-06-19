@@ -8,6 +8,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { appVersionLabel } from '../lib/version'
 
 const navItems = [
   { to: '/', icon: Home, label: 'Accueil' },
@@ -25,6 +26,9 @@ export function Layout() {
       <aside className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-900/95 backdrop-blur md:bottom-auto md:top-0 md:flex md:h-full md:w-56 md:flex-col md:border-r md:border-t-0">
         <div className="hidden md:block border-b border-slate-800 px-3 py-3">
           <h1 className="text-base font-bold text-indigo-400">Game Manager</h1>
+          <p className="mt-1 text-[10px] leading-tight text-slate-500">
+            {appVersionLabel()}
+          </p>
         </div>
         <nav className="flex justify-around md:flex-col md:justify-start md:gap-0.5 md:p-2">
           {navItems.map(({ to, icon: Icon, label }) => (

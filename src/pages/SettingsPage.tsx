@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { importFromExcel } from '../lib/import-xlsx'
 import { exportToExcel } from '../lib/export-xlsx'
 import { Button, Input, Card } from '../components/ui'
+import { appVersionLabel } from '../lib/version'
 import type { ExportReport, ImportReport } from '../types'
 
 export function SettingsPage() {
@@ -79,7 +80,10 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Paramètres</h1>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h1 className="text-2xl font-bold">Paramètres</h1>
+        <p className="text-xs text-slate-500 md:hidden">{appVersionLabel()}</p>
+      </div>
 
       <Card>
         <h2 className="mb-2 font-semibold">Compte</h2>
