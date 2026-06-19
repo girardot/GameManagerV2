@@ -110,5 +110,6 @@ export interface ImportReport {
 export interface ExportReport {
   gamesCount: number
   buyCount: number
+  playQueueCount: number
   error: string | null
 }

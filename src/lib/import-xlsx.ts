@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import { SupabaseClient } from '@supabase/supabase-js'
-import type { GameProgress, ImportReport } from '../types'
+import type { GameProgress, ImportReport, PegiRating } from '../types'
+import { syncGameTags } from './tags'
 
 function mapProgress(value: unknown): GameProgress {
   const v = String(value ?? '').toUpperCase().trim()
@@ -18,6 +19,34 @@ function parsePrice(value: unknown): number | null {
 
 function parseBool(value: unknown): boolean {
   return value === true || value === 'TRUE' || value === 1
+}
+
+function parsePegi(value: unknown): PegiRating | null {
+  if (value == null || value === '') return null
+  const n = Number(value)
+  if (n === 3 || n === 7 || n === 12 || n === 16 || n === 18) return n as PegiRating
+  return null
+}
+
+function parseRatingValue(value: unknown): number | null {
+  if (value == null || value === '') return null
+  const n = Number(value)
+  if (!Number.isInteger(n) || n < 0 || n > 20) return null
+  return n
+}
+
+function parsePriority(value: unknown, fallback: number): number {
+  if (value == null || value === '') return fallback
+  const n = Number(value)
+  return Number.isInteger(n) && n > 0 ? n : fallback
+}
+
+function parseTagNames(value: unknown): string[] {
+  if (value == null || value === '') return []
+  return String(value)
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
 }
 
 export async function importFromExcel(
@@ -108,7 +137,16 @@ export async function importFromExcel(
   const gamesSheet = workbook.Sheets['Games']
   if (gamesSheet) {
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(gamesSheet, {
-      header: ['console', 'title', 'demat', 'progress'],
+      header: [
+        'console',
+        'title',
+        'demat',
+        'progress',
+        'notes',
+        'pegi',
+        'rating',
+        'tags',
+      ],
       range: 1,
     })
 
@@ -133,14 +171,25 @@ export async function importFromExcel(
 
       const progress = mapProgress(row.progress)
       const is_digital = parseBool(row.demat)
+      const notes = String(row.notes ?? '').trim() || null
+      const pegi = parsePegi(row.pegi)
+      const rating = parseRatingValue(row.rating)
+      const tagNames = parseTagNames(row.tags)
 
-      const { error } = await supabase.from('games').insert({
-        user_id: userId,
-        console_id: consoleId,
-        title,
-        is_digital,
-        progress,
-      })
+      const { data: inserted, error } = await supabase
+        .from('games')
+        .insert({
+          user_id: userId,
+          console_id: consoleId,
+          title,
+          is_digital,
+          progress,
+          notes,
+          pegi,
+          rating,
+        })
+        .select('id')
+        .single()
 
       if (error) {
         if (error.code === '23505') report.gamesSkipped++
@@ -148,6 +197,10 @@ export async function importFromExcel(
         continue
       }
       report.gamesCreated++
+
+      if (inserted && tagNames.length > 0) {
+        await syncGameTags(supabase, userId, inserted.id, tagNames)
+      }
 
       if (
         addTodoToPlayQueue &&
@@ -169,7 +222,16 @@ export async function importFromExcel(
   const buySheet = workbook.Sheets['To Buy']
   if (buySheet) {
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(buySheet, {
-      header: ['title', 'console', 'demat', 'price'],
+      header: [
+        'title',
+        'console',
+        'demat',
+        'price',
+        'pegi',
+        'rating',
+        'notes',
+        'priority',
+      ],
       range: 1,
     })
 
@@ -198,13 +260,18 @@ export async function importFromExcel(
           : parseBool(dematVal)
 
       maxBuyPriority++
+      const priority = parsePriority(row.priority, maxBuyPriority)
+
       const { error } = await supabase.from('buy_list').insert({
         user_id: userId,
         title,
         console_id: consoleId,
         is_digital,
         price: parsePrice(row.price),
-        priority: maxBuyPriority,
+        pegi: parsePegi(row.pegi),
+        rating: parseRatingValue(row.rating),
+        notes: String(row.notes ?? '').trim() || null,
+        priority,
       })
 
       if (error) {
@@ -212,6 +279,53 @@ export async function importFromExcel(
         report.errors.push(`À acheter "${title}": ${error.message}`)
       } else {
         report.buyCreated++
+      }
+    }
+  }
+
+  // To Play sheet
+  const playSheet = workbook.Sheets['To Play']
+  if (playSheet) {
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(playSheet, {
+      header: ['priority', 'title', 'console', 'notes', 'pegi', 'rating'],
+      range: 1,
+    })
+
+    let maxPlayPriority = 0
+    const { data: existingQueue } = await supabase
+      .from('play_queue')
+      .select('priority')
+      .eq('user_id', userId)
+      .order('priority', { ascending: false })
+      .limit(1)
+    maxPlayPriority = existingQueue?.[0]?.priority ?? 0
+
+    for (const row of rows) {
+      const title = String(row.title ?? '').trim()
+      if (!title || title === 'Titre') continue
+
+      const consoleName = String(row.console ?? '').trim()
+      const consoleId = consoleName
+        ? await getOrCreateConsole(consoleName)
+        : null
+
+      maxPlayPriority++
+      const priority = parsePriority(row.priority, maxPlayPriority)
+
+      const { error } = await supabase.from('play_queue').insert({
+        user_id: userId,
+        title,
+        console_id: consoleId,
+        notes: String(row.notes ?? '').trim() || null,
+        pegi: parsePegi(row.pegi),
+        rating: parseRatingValue(row.rating),
+        priority,
+      })
+
+      if (error) {
+        report.errors.push(`À jouer "${title}": ${error.message}`)
+      } else {
+        report.playQueueCreated++
       }
     }
   }

@@ -70,6 +70,7 @@ export function SettingsPage() {
       setExportReport({
         gamesCount: 0,
         buyCount: 0,
+        playQueueCount: 0,
         error: String(err),
       })
     }
@@ -131,7 +132,7 @@ export function SettingsPage() {
       <Card>
         <h2 className="mb-2 font-semibold">Excel</h2>
         <p className="mb-4 text-sm text-slate-400">
-          Import et export au format Games.xlsx (feuilles Games et To Buy).
+          Import et export au format Games.xlsx (feuilles Games, To Buy et To Play).
         </p>
 
         <div className="space-y-4">
@@ -146,7 +147,8 @@ export function SettingsPage() {
             {exportReport && !exportReport.error && (
               <p className="mt-2 text-sm text-green-400">
                 Export réussi : {exportReport.gamesCount} jeux,{' '}
-                {exportReport.buyCount} à acheter.
+                {exportReport.buyCount} à acheter, {exportReport.playQueueCount}{' '}
+                à jouer.
               </p>
             )}
             {exportReport?.error && (
