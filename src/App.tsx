@@ -9,6 +9,7 @@ import { PlayQueuePage } from './pages/PlayQueuePage'
 import { BuyListPage } from './pages/BuyListPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { FriendsPage } from './pages/FriendsPage'
+import { FriendCollectionPage } from './pages/FriendCollectionPage'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -31,6 +32,7 @@ function ProtectedRoutes() {
         <Route path="a-jouer" element={<PlayQueuePage />} />
         <Route path="a-acheter" element={<BuyListPage />} />
         <Route path="amis" element={<FriendsPage />} />
+        <Route path="amis/:userId/collection" element={<FriendCollectionPage />} />
         <Route path="parametres" element={<SettingsPage />} />
       </Route>
     </Routes>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { UserPlus, Clock, X, Check, UserMinus, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { UserPlus, Clock, X, Check, UserMinus, Users, Library } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import {
   friendProfile,
@@ -186,6 +187,8 @@ export function FriendsPage() {
           <ul className="divide-y divide-slate-800">
             {acceptedFriends.map((f) => {
               const profile = friendProfile(f, user!.id)
+              const friendId =
+                f.requester_id === user!.id ? f.addressee_id : f.requester_id
               return (
                 <li
                   key={f.id}
@@ -200,18 +203,28 @@ export function FriendsPage() {
                       )}
                     </span>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="shrink-0 text-slate-400 hover:text-red-400"
-                    disabled={actingId === f.id}
-                    onClick={() =>
-                      runAction(f.id, () => removeFriend(f.id))
-                    }
-                    title="Retirer cet ami"
-                  >
-                    <UserMinus className="h-4 w-4" />
-                  </Button>
+                  <div className="flex shrink-0 gap-1">
+                    <Link
+                      to={`/amis/${friendId}/collection`}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-transparent px-3 py-2.5 text-sm font-medium text-indigo-400 transition hover:bg-slate-800 min-h-[44px]"
+                      title="Voir la collection"
+                    >
+                      <Library className="h-4 w-4" />
+                      <span className="hidden sm:inline">Collection</span>
+                    </Link>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-slate-400 hover:text-red-400"
+                      disabled={actingId === f.id}
+                      onClick={() =>
+                        runAction(f.id, () => removeFriend(f.id))
+                      }
+                      title="Retirer cet ami"
+                    >
+                      <UserMinus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </li>
               )
             })}
